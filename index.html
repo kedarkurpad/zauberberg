@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Zauberberg — Insights on power, politics, and peace</title>
+<style>
+  :root {
+    /* --- Palette locked in DECISIONS.md — do not modify without a changelog entry --- */
+    --bg: #14110D;
+    --panel: #211C17;
+    --border: #6E6255;
+    --text: #F0E6D8;
+    --terracotta: #E2643B;   /* primary series */
+    --turquoise: #2DB6A6;    /* secondary series */
+    --ochre: #D9A441;        /* highlights */
+    --ristra: #D25858;       /* links / quaternary series */
+    --sage: #8FA876;         /* positive / alt series */
+
+    /* System stacks only — no network fetch, and each OS renders
+       the face it already ships and hints correctly. */
+    --font-label: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-data: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas, "Liberation Mono", monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-label);
+    min-height: 100vh;
+  }
+
+  a { color: var(--ristra); text-decoration: none; }
+  a:hover, a:focus-visible { text-decoration: underline; }
+
+  :focus-visible {
+    outline: 2px solid var(--ochre);
+    outline-offset: 2px;
+  }
+
+  /* ================= STATIC TOP BAR ================= */
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 14px 24px 14px 16px; /* left matches .ticker__label's 16px inset so Zauberberg's Z lines up with Indicators' I */
+  }
+
+  .topbar__identity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+  }
+
+  .topbar__brand-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .topbar__divider {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 0 0 auto;
+  }
+
+  .topbar__title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .topbar__nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 0 0 auto;
+  }
+
+  .topbar__nav a {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.45;
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  /* placeholder state: not wired up yet, so no hover/underline affordance */
+  .topbar__nav a[aria-disabled="true"] {
+    pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    .topbar { flex-wrap: wrap; row-gap: 8px; align-items: flex-start; }
+    .topbar__identity { flex-wrap: wrap; row-gap: 4px; }
+    .topbar__title {
+      flex-basis: 100%;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: initial;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+  }
+
+  /* ================= TOP-LINE TICKER MODULE ================= */
+
+  .ticker {
+    position: sticky;
+    top: var(--topbar-height, 49px); /* set at runtime from the topbar's measured height, so both stay pinned flush regardless of OS font metrics */
+    z-index: 9;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .ticker__viewport {
+    flex: 1 1 auto;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    /* fade edges so items don't hard-clip */
+    mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 24px, black calc(100% - 24px), transparent 100%);
+  }
+
+  .ticker__track {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    width: max-content;
+    animation: ticker-scroll 48s linear infinite;
+  }
+
+  .ticker__group {
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+
+  .ticker:hover .ticker__track,
+  .ticker__track:focus-within {
+    animation-play-state: paused;
+  }
+
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); } /* track is duplicated x2 for seamless loop */
+  }
+
+  .ticker__item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 0 20px;
+    border-right: 1px solid var(--border);
+    height: 20px;
+    white-space: nowrap;
+  }
+
+  .ticker__item:focus-visible {
+    outline: 1px solid var(--ochre);
+    outline-offset: 4px;
+  }
+
+  .ticker__name {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.75;
+    letter-spacing: 0.01em;
+  }
+
+  .ticker__value {
+    font-family: var(--font-data);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .ticker__delta {
+    font-family: var(--font-data);
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* direction glyph colored per the metric's own assigned series color —
+     not a red/green good/bad judgment, since "up" isn't uniformly
+     good or bad across these indicators (e.g. rising wealth-share
+     concentration vs. rising renewable investment share) */
+  .ticker__delta[data-series="terracotta"] { color: var(--terracotta); }
+  .ticker__delta[data-series="turquoise"]  { color: var(--turquoise); }
+  .ticker__delta[data-series="ochre"]      { color: var(--ochre); }
+  .ticker__delta[data-series="ristra"]     { color: var(--ristra); }
+  .ticker__delta[data-series="sage"]       { color: var(--sage); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ticker__track { animation: none; }
+    .ticker__viewport { overflow-x: auto; }
+    .ticker__group[aria-hidden="true"] { display: none; }
+  }
+
+  /* ================= SKELETON BELOW TICKER ================= */
+
+  .shell {
+    padding: 20px 24px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .panel-placeholder {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    min-height: 200px;
+    padding: 16px;
+  }
+
+  .panel-placeholder__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .panel-placeholder__note {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.5;
+  }
+
+  /* ================= FOOTER ================= */
+
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 24px 24px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .footer__status {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.5;
+    line-height: 1.7;
+    max-width: 90ch;
+  }
+
+  .footer__samples-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .footer__samples-note {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.5;
+    margin-bottom: 14px;
+    max-width: 70ch;
+  }
+
+  .sample-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+
+  .sample-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 12px;
+  }
+
+  .sample-card__text {
+    font-size: 12px;
+    color: var(--text);
+    opacity: 0.85;
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+
+  .sample-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-family: var(--font-data);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .tag--sentiment[data-tone="negative"] { color: var(--ristra); border-color: var(--ristra); }
+  .tag--sentiment[data-tone="neutral"]  { color: var(--text); opacity: 0.55; }
+  .tag--sentiment[data-tone="positive"] { color: var(--sage); border-color: var(--sage); }
+
+  .tag--community[data-series="terracotta"] { color: var(--terracotta); border-color: var(--terracotta); }
+  .tag--community[data-series="turquoise"]  { color: var(--turquoise); border-color: var(--turquoise); }
+  .tag--community[data-series="ochre"]      { color: var(--ochre); border-color: var(--ochre); }
+  .tag--community[data-series="sage"]       { color: var(--sage); border-color: var(--sage); }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar__identity">
+      <div class="topbar__brand">
+        <span class="topbar__brand-name">Zauberberg</span>
+      </div>
+      <span class="topbar__divider" aria-hidden="true">//</span>
+      <h1 class="topbar__title">Insights on power, politics, and peace</h1>
+    </div>
+    <nav class="topbar__nav" aria-label="Site sections">
+      <a role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">Theory Notes</a>
+      <a role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">Methodology</a>
+      <a role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">About</a>
+    </nav>
+  </header>
+
+  <div class="ticker" role="region" aria-label="Structural indicators">
+    <div class="ticker__viewport">
+      <div class="ticker__track" id="tickerTrack"></div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <div class="grid">
+      <div class="panel-placeholder">
+        <h2 class="panel-placeholder__title">Structural Power &amp; Political Economy</h2>
+        <p class="panel-placeholder__note">Panel pending — dataset selection in progress.</p>
+      </div>
+      <div class="panel-placeholder">
+        <h2 class="panel-placeholder__title">Distributional Justice</h2>
+        <p class="panel-placeholder__note">Panel pending — dataset selection in progress.</p>
+      </div>
+      <div class="panel-placeholder">
+        <h2 class="panel-placeholder__title">Peace, Conflict &amp; Anti-Hegemony</h2>
+        <p class="panel-placeholder__note">Panel pending — dataset selection in progress.</p>
+      </div>
+      <div class="panel-placeholder">
+        <h2 class="panel-placeholder__title">Energy</h2>
+        <p class="panel-placeholder__note">Panel pending — dataset selection in progress.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div>
+      <h2 class="footer__samples-title">Discourse-tagging output format (illustrative)</h2>
+      <p class="footer__samples-note">
+        The four examples below are synthetic — written for this template, not drawn from real posts, platforms, or users — and exist only to preview how the NLP toolkit's sentiment/discourse-cluster tags would attach to real analyzed text once that pipeline exists.
+      </p>
+      <div class="sample-grid" id="sampleGrid"></div>
+    </div>
+
+    <p class="footer__status">
+      Data as of <span id="dataAsOf"></span> &middot;
+      Live via scheduled pipeline: FRED (T10Y2Y), BLS (unemployment gap), GDELT (tone sample), WID.world/OWID (top 1% wealth share, annual), US Census Bureau (Gini, annual) &middot;
+      Still placeholder pending Tier 2 wiring: ECB SDW, EU ETS/Ember, US Treasury OFAC &middot;
+      Dropped for lack of a low-lift API: Cornell/Illinois Labor Action Tracker, ACLED &middot;
+      Planned discourse-analysis inputs: public speech transcripts, official party platform publications, and public posts from politicians' verified official accounts &mdash; not private citizens' social media &middot;
+      see Methodology (above) for per-indicator sourcing once documented.
+    </p>
+  </footer>
+
+  <script>
+    // Ticker data now comes from ./ticker-data.json, which a scheduled
+    // GitHub Action (.github/workflows/update-ticker-data.yml) regenerates
+    // server-side — see DECISIONS.md, Technical Requirements, for why (GitHub
+    // Pages is static, so keys can't live in this file, and this also avoids
+    // CORS on sources that don't allow browser calls).
+    //
+    // Live in this pass: FRED T10Y2Y, BLS Black-White unemployment gap, and a
+    // GDELT tone sample (Tier 1), plus WID.world wealth share and Census Gini
+    // (kept as topline indicators by request, even though both only refresh
+    // annually — their "asOf" tag is what tells you how stale a given value
+    // is). Still placeholder, pending Tier 2 work: the ECB bond spread, OFAC
+    // additions, and EU ETS/carbon price. Labor Action Tracker and ACLED were
+    // dropped for this pass — no low-lift API path (see DECISIONS.md).
+    const FALLBACK_INDICATORS = [
+      { name: "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)", value: "-0.18pp", change: "+0.04pp", series: "terracotta" },
+      { name: "Black\u2013White Unemployment Rate Gap (BLS, monthly)", value: "3.1pp", change: "-0.2pp", series: "ristra" },
+      { name: "GDELT News Tone \u2014 Gov/Econ/Politics Sample (EN-heavy sources)", value: "-1.8", change: "-0.3", series: "ochre" },
+      { name: "Global Top 1% Wealth Share (WID.world, via OWID)", value: "19.8%", change: "+0.3pp", series: "sage" },
+      { name: "Gini Coefficient \u2014 US Disposable Income (Census Bureau)", value: "0.412", change: "n/a", series: "sage" },
+      { name: "Italy\u2013Germany 10Y Bond Spread (BTP\u2013Bund)", value: "1.62pp", change: "+0.08pp", series: "terracotta" },
+      { name: "OFAC SDN List Additions (rolling 90-day)", value: "37", change: "+6", series: "turquoise" },
+      { name: "EU ETS Carbon Price (EUA Futures, via Ember)", value: "\u20ac68.40", change: "-1.15", series: "ochre" },
+    ];
+
+    let lastGeneratedAt = null;
+
+    function renderItems(indicators, isClone) {
+      return indicators.map(i => {
+        const isUp = i.change.trim().startsWith("+");
+        const arrow = i.change.trim() === "n/a" ? "\u2013" : (isUp ? "▲" : "▼");
+        const tab = isClone ? 'tabindex="-1"' : 'tabindex="0"';
+        const title = i.note ? ` title="${i.note.replace(/"/g, '&quot;')}"` : "";
+        return `
+          <div class="ticker__item" ${tab}${title}>
+            <span class="ticker__name">${i.name}</span>
+            <span class="ticker__value">${i.value}</span>
+            <span class="ticker__delta" data-series="${i.series}">${arrow} ${i.change}</span>
+          </div>`;
+      }).join("");
+    }
+
+    // duplicate the sequence once so the -50% translateX loops seamlessly;
+    // the clone is aria-hidden and untabbable so it's never announced or
+    // reachable twice — screen reader / keyboard users see each indicator once
+    function paintTicker(indicators) {
+      const track = document.getElementById("tickerTrack");
+      track.innerHTML =
+        `<div class="ticker__group">${renderItems(indicators, false)}</div>` +
+        `<div class="ticker__group" aria-hidden="true">${renderItems(indicators, true)}</div>`;
+    }
+
+    async function loadTickerData() {
+      try {
+        const res = await fetch("./ticker-data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        lastGeneratedAt = data.generatedAt ?? null;
+        paintTicker(data.indicators?.length ? data.indicators : FALLBACK_INDICATORS);
+      } catch (err) {
+        console.warn("ticker-data.json unavailable, using fallback values:", err);
+        paintTicker(FALLBACK_INDICATORS);
+      }
+      syncDataAsOf();
+    }
+    loadTickerData();
+
+    // Measure the topbar's real rendered height so the sticky ticker sits
+    // flush beneath it — system-font line-height varies across OS/browser,
+    // so a hardcoded pixel offset would drift.
+    function syncTopbarHeight() {
+      const topbar = document.querySelector(".topbar");
+      document.documentElement.style.setProperty("--topbar-height", topbar.offsetHeight + "px");
+    }
+    syncTopbarHeight();
+    window.addEventListener("resize", syncTopbarHeight);
+
+    // Synthetic, clearly-labeled examples only — written for this template,
+    // not scraped or derived from real posts/users. Demonstrates the tagging
+    // format (sentiment tone + discourse-cluster label) the NLP toolkit
+    // described in DECISIONS.md's Technical Requirements would eventually
+    // produce from real analyzed text.
+    const discourseSamples = [
+      { text: "Local factory closures reflect a broader shift in trade policy that voters are responding to.", tone: "negative", toneScore: "\u22122.1", cluster: "Populist-nationalist", series: "terracotta" },
+      { text: "Union membership numbers are up again this quarter, and organizers are calling it a turning point.", tone: "positive", toneScore: "+2.4", cluster: "Labor-solidarity", series: "turquoise" },
+      { text: "The proposed reform passed committee review without major amendments.", tone: "neutral", toneScore: "+0.1", cluster: "Technocratic-centrist", series: "ochre" },
+      { text: "Residents near the new pipeline route are organizing ahead of the public hearing.", tone: "negative", toneScore: "\u22121.6", cluster: "Environmental-justice", series: "sage" },
+    ];
+
+    function renderSamples() {
+      const grid = document.getElementById("sampleGrid");
+      grid.innerHTML = discourseSamples.map(s => `
+        <div class="sample-card">
+          <p class="sample-card__text">${s.text}</p>
+          <div class="sample-card__tags">
+            <span class="tag tag--sentiment" data-tone="${s.tone}">tone ${s.toneScore}</span>
+            <span class="tag tag--community" data-series="${s.series}">${s.cluster}</span>
+          </div>
+        </div>`).join("");
+    }
+    renderSamples();
+
+    function syncDataAsOf() {
+      const el = document.getElementById("dataAsOf");
+      if (!el) return;
+      if (lastGeneratedAt) {
+        // Reflects when the GitHub Action last refreshed ticker-data.json,
+        // not the visitor's page-load time — the two are usually different.
+        const d = new Date(lastGeneratedAt);
+        el.textContent = `${d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })} (last pipeline run)`;
+      } else {
+        el.textContent = "unavailable \u2014 showing fallback values";
+      }
+    }
+  </script>
+
+</body>
+</html>

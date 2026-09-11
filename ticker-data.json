@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-09-11T00:00:00.000Z",
+  "indicators": [
+    {
+      "id": "treasury-spread",
+      "name": "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)",
+      "value": "-0.18pp",
+      "change": "+0.04pp",
+      "series": "terracotta",
+      "asOf": "placeholder"
+    },
+    {
+      "id": "unemployment-gap",
+      "name": "Black\u2013White Unemployment Rate Gap (BLS, monthly)",
+      "value": "3.1pp",
+      "change": "-0.2pp",
+      "series": "ristra",
+      "asOf": "placeholder"
+    },
+    {
+      "id": "gdelt-tone",
+      "name": "GDELT News Tone \u2014 Gov/Econ/Politics Sample (EN-heavy sources)",
+      "value": "-1.8",
+      "change": "-0.3",
+      "series": "ochre",
+      "asOf": "placeholder"
+    },
+    {
+      "id": "wealth-share-top1",
+      "name": "Global Top 1% Wealth Share (WID.world, via OWID)",
+      "value": "19.8%",
+      "change": "+0.3pp",
+      "series": "sage",
+      "asOf": "placeholder",
+      "note": "Annual release \u2014 value is static between WID.world's yearly updates."
+    },
+    {
+      "id": "gini-us",
+      "name": "Gini Coefficient \u2014 US Disposable Income (Census Bureau)",
+      "value": "0.412",
+      "change": "n/a",
+      "series": "sage",
+      "asOf": "placeholder",
+      "note": "Annual ACS 1-year release \u2014 value is static between updates."
+    }
+  ]
+}

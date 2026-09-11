@@ -1,0 +1,36 @@
+name: Update ticker data
+
+on:
+  schedule:
+    # 12:15 UTC daily — after FRED/BLS/Census publish, before US market open.
+    # Tune per-source cadence later if Tier 2 (ECB, OFAC) gets added.
+    - cron: "15 12 * * *"
+  workflow_dispatch: {} # lets you trigger a refresh manually from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update-ticker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Fetch indicators
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+          CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+        run: node scripts/fetch-ticker-data.mjs
+
+      - name: Commit updated ticker-data.json
+        run: |
+          git config user.name "ticker-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ticker-data.json
+          git diff --cached --quiet || git commit -m "chore: refresh ticker data"
+          git push
