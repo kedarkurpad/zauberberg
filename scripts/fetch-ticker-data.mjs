@@ -50,6 +50,29 @@ async function safeFetchJson(url, opts) {
   return res.json();
 }
 
+// GDELT's public API has no uptime SLA and is occasionally slow or
+// unreachable from CI runners (network-level "fetch failed", not an HTTP
+// error). Retry a couple of times with a short timeout before giving up and
+// letting main() fall back to the previous value.
+async function fetchJsonWithRetry(url, { attempts = 3, timeoutMs = 15000 } = {}) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      clearTimeout(timer);
+      lastErr = err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 async function safeFetchText(url, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
@@ -120,7 +143,7 @@ async function fetchBls() {
 async function fetchGdelt() {
   const url =
     "https://api.gdeltproject.org/api/v2/doc/doc?query=government%20OR%20economy%20OR%20politics&mode=timelinetone&format=json&timespan=3d";
-  const data = await safeFetchJson(url);
+  const data = await fetchJsonWithRetry(url);
   const points = data.timeline?.[0]?.data ?? [];
   if (points.length < 1) throw new Error("GDELT: empty timeline");
   const latest = points[points.length - 1];
@@ -138,25 +161,59 @@ async function fetchGdelt() {
 }
 
 // ---- OWID (WID.world-sourced): Global Top 1% Wealth Share ----
+// Minimal CSV line parser (handles quoted fields) — OWID's CSVs are simple,
+// but this avoids silently misaligning columns if a field is ever quoted.
+function parseCsvLine(line) {
+  const out = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; }
+        else inQuotes = false;
+      } else cur += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim());
+}
+
 async function fetchWealthShare() {
   const url =
     "https://ourworldindata.org/grapher/wealth-share-richest.csv?v=1&csvType=full&useColumnShortNames=false&quantile=richest_1pct";
   const csv = await safeFetchText(url, { headers: { "User-Agent": "dashboard-ticker/1.0" } });
-  const lines = csv.split("\n").filter(Boolean);
-  const header = lines[0].split(",");
+  const lines = csv.split(/\r?\n/).filter(Boolean);
+  const header = parseCsvLine(lines[0]);
   const entityIdx = header.indexOf("Entity");
   const yearIdx = header.indexOf("Year");
-  const valueIdx = header.length - 1; // wealth-share value is the last column
+  const codeIdx = header.indexOf("Code");
+  // The value column is whichever one ISN'T Entity/Code/Year — don't assume
+  // it's always last, and prefer a "...1%..." header if more than one
+  // non-metadata column is present (e.g. if OWID ever stops honoring the
+  // ?quantile= filter server-side).
+  const candidateIdxs = header
+    .map((_, idx) => idx)
+    .filter((idx) => idx !== entityIdx && idx !== yearIdx && idx !== codeIdx);
+  if (entityIdx === -1 || yearIdx === -1 || candidateIdxs.length < 1) {
+    throw new Error(`OWID/WID: unexpected columns: ${header.join(" | ")}`);
+  }
+  const valueIdx =
+    candidateIdxs.find((idx) => /1\s*%|richest_1pct/i.test(header[idx])) ?? candidateIdxs[0];
+
   const worldRows = lines
     .slice(1)
-    .map((l) => l.split(","))
-    .filter((cols) => cols[entityIdx] === "World")
+    .map(parseCsvLine)
+    .filter((cols) => cols[entityIdx] === "World" && cols[valueIdx] !== "" && !Number.isNaN(parseFloat(cols[valueIdx])))
     .sort((a, b) => Number(b[yearIdx]) - Number(a[yearIdx]));
-  if (worldRows.length < 1) throw new Error("OWID/WID: no World rows found");
+  if (worldRows.length < 1) throw new Error("OWID/WID: no usable World rows found");
   const latest = worldRows[0];
   const prev = worldRows[1] ?? latest;
-  const latestPct = Number(latest[valueIdx]) * 100;
-  const prevPct = Number(prev[valueIdx]) * 100;
+  const latestPct = parseFloat(latest[valueIdx]) * 100;
+  const prevPct = parseFloat(prev[valueIdx]) * 100;
   return {
     id: "wealth-share-top1",
     name: "Global Top 1% Wealth Share (WID.world, via OWID)",
