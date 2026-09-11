@@ -62,8 +62,16 @@ async function fetchJsonWithRetry(url, { attempts = 3, timeoutMs = 15000 } = {})
     try {
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timer);
-      if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
-      return await res.json();
+      const text = await res.text();
+      if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}: ${text.slice(0, 200)}`);
+      try {
+        return JSON.parse(text);
+      } catch {
+        // GDELT sometimes returns a 200 with a plain-text error body
+        // (e.g. malformed query) instead of JSON — surface it plainly
+        // rather than letting JSON.parse's cryptic message be the only clue.
+        throw new Error(`Non-JSON response: ${text.slice(0, 200)}`);
+      }
     } catch (err) {
       clearTimeout(timer);
       lastErr = err;
@@ -141,8 +149,16 @@ async function fetchBls() {
 
 // ---- GDELT: broad-topic tone sample (NOT a true global average) ----
 async function fetchGdelt() {
-  const url =
-    "https://api.gdeltproject.org/api/v2/doc/doc?query=government%20OR%20economy%20OR%20politics&mode=timelinetone&format=json&timespan=3d";
+  // GDELT's DOC 2.0 API requires top-level OR clauses to be parenthesized —
+  // an unparenthesized OR returns a 200 with a plain-text syntax-error body
+  // instead of JSON (that's the "fetch failed"/"Unexpected token" symptom).
+  const params = new URLSearchParams({
+    query: "(government OR economy OR politics)",
+    mode: "timelinetone",
+    format: "json",
+    timespan: "3d",
+  });
+  const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
   const data = await fetchJsonWithRetry(url);
   const points = data.timeline?.[0]?.data ?? [];
   if (points.length < 1) throw new Error("GDELT: empty timeline");
