@@ -194,9 +194,13 @@ async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderReg
   if (rows.length < 1) throw new Error(`OWID: no usable "${entityName}" rows found`);
   const latest = rows[0];
   const prev = rows[1] ?? latest;
+  // NOTE: OWID's CSV export already stores these as percent (their own
+  // metadata says "Unit: %"), NOT as a 0-1 fraction like WID.world's raw
+  // source data. Do not multiply by 100 here — that was the bug that
+  // produced 1900%+ readings.
   return {
-    latestPct: parseFloat(latest[valueIdx]) * 100,
-    prevPct: parseFloat(prev[valueIdx]) * 100,
+    latestPct: parseFloat(latest[valueIdx]),
+    prevPct: parseFloat(prev[valueIdx]),
     year: latest[yearIdx],
   };
 }
