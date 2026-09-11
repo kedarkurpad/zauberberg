@@ -1,25 +1,25 @@
 {
-  "generatedAt": "2026-09-11T00:00:00.000Z",
+  "generatedAt": "2026-09-11T19:51:47.894Z",
   "indicators": [
     {
       "id": "treasury-spread",
-      "name": "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)",
-      "value": "-0.18pp",
-      "change": "+0.04pp",
+      "name": "10Y–2Y Treasury Yield Spread (FRED: T10Y2Y)",
+      "value": "0.4pp",
+      "change": "-0.0pp",
       "series": "terracotta",
-      "asOf": "placeholder"
+      "asOf": "2026-09-10"
     },
     {
       "id": "unemployment-gap",
-      "name": "Black\u2013White Unemployment Rate Gap (BLS, monthly)",
-      "value": "3.1pp",
-      "change": "-0.2pp",
+      "name": "Black–White Unemployment Rate Gap (BLS, monthly)",
+      "value": "2.3pp",
+      "change": "-0.4pp",
       "series": "ristra",
-      "asOf": "placeholder"
+      "asOf": "2026-08"
     },
     {
       "id": "gdelt-tone",
-      "name": "GDELT News Tone \u2014 Gov/Econ/Politics Sample (EN-heavy sources)",
+      "name": "GDELT News Tone — Gov/Econ/Politics Sample (EN-heavy sources)",
       "value": "-1.8",
       "change": "-0.3",
       "series": "ochre",
@@ -28,20 +28,20 @@
     {
       "id": "wealth-share-top1",
       "name": "Global Top 1% Wealth Share (WID.world, via OWID)",
-      "value": "19.8%",
-      "change": "+0.3pp",
+      "value": "NaN%",
+      "change": "NaNpp",
       "series": "sage",
-      "asOf": "placeholder",
-      "note": "Annual release \u2014 value is static between WID.world's yearly updates."
+      "asOf": "2024",
+      "note": "Annual release — value is static between WID.world's yearly updates."
     },
     {
       "id": "gini-us",
-      "name": "Gini Coefficient \u2014 US Disposable Income (Census Bureau)",
-      "value": "0.412",
+      "name": "Gini Coefficient — US Disposable Income (Census Bureau)",
+      "value": "0.481",
       "change": "n/a",
       "series": "sage",
-      "asOf": "placeholder",
-      "note": "Annual ACS 1-year release \u2014 value is static between updates."
+      "asOf": "2024",
+      "note": "Annual ACS 1-year release — value is static between updates."
     }
   ]
 }
