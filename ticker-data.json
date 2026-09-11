@@ -1,47 +1,66 @@
 {
-  "generatedAt": "2026-09-11T20:01:54.011Z",
+  "generatedAt": "2026-09-11T00:00:00.000Z",
   "indicators": [
     {
       "id": "treasury-spread",
-      "name": "10Y–2Y Treasury Yield Spread (FRED: T10Y2Y)",
-      "value": "0.4pp",
-      "change": "-0.0pp",
+      "name": "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)",
+      "value": "-0.18pp",
+      "change": "+0.04pp",
       "series": "terracotta",
-      "asOf": "2026-09-10"
+      "asOf": "placeholder"
+    },
+    {
+      "id": "labor-share",
+      "name": "Labor Share of GDP (Penn World Table via FRED, annual)",
+      "value": "62.8%",
+      "change": "+0.1pp",
+      "series": "terracotta",
+      "asOf": "placeholder",
+      "note": "Annual release \u2014 value is static between updates."
     },
     {
       "id": "unemployment-gap",
-      "name": "Black–White Unemployment Rate Gap (BLS, monthly)",
-      "value": "2.3pp",
-      "change": "-0.4pp",
+      "name": "Black\u2013White Unemployment Rate Gap (BLS, monthly)",
+      "value": "3.1pp",
+      "change": "-0.2pp",
       "series": "ristra",
-      "asOf": "2026-08"
+      "asOf": "placeholder"
     },
     {
-      "id": "gdelt-tone",
-      "name": "GDELT News Tone — Gov/Econ/Politics Sample (EN-heavy sources)",
-      "value": "-1.8",
-      "change": "-0.3",
-      "series": "ochre",
-      "asOf": "placeholder"
+      "id": "income-gap-us",
+      "name": "White\u2013Black Median Household Income Gap (Census Bureau, annual)",
+      "value": "$23,000",
+      "change": "n/a",
+      "series": "ristra",
+      "asOf": "placeholder",
+      "note": "Annual ACS 1-year release \u2014 value is static between updates."
     },
     {
       "id": "wealth-share-top1",
       "name": "Global Top 1% Wealth Share (WID.world, via OWID)",
-      "value": "3644.0%",
-      "change": "+5.0pp",
+      "value": "19.8%",
+      "change": "+0.3pp",
       "series": "sage",
-      "asOf": "2024",
-      "note": "Annual release — value is static between WID.world's yearly updates."
+      "asOf": "placeholder",
+      "note": "Annual release \u2014 value is static between WID.world's yearly updates."
+    },
+    {
+      "id": "income-share-top1-us",
+      "name": "US Top 1% Income Share, Before Tax (WID.world, via OWID)",
+      "value": "20.5%",
+      "change": "+0.2pp",
+      "series": "turquoise",
+      "asOf": "placeholder",
+      "note": "Annual release \u2014 value is static between WID.world's yearly updates."
     },
     {
       "id": "gini-us",
-      "name": "Gini Coefficient — US Disposable Income (Census Bureau)",
-      "value": "0.481",
+      "name": "Gini Coefficient \u2014 US Disposable Income (Census Bureau)",
+      "value": "0.412",
       "change": "n/a",
       "series": "sage",
-      "asOf": "2024",
-      "note": "Annual ACS 1-year release — value is static between updates."
+      "asOf": "placeholder",
+      "note": "Annual ACS 1-year release \u2014 value is static between updates."
     }
   ]
 }
