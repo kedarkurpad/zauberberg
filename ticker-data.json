@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T19:51:47.894Z",
+  "generatedAt": "2026-09-11T19:58:45.865Z",
   "indicators": [
     {
       "id": "treasury-spread",
@@ -28,8 +28,8 @@
     {
       "id": "wealth-share-top1",
       "name": "Global Top 1% Wealth Share (WID.world, via OWID)",
-      "value": "NaN%",
-      "change": "NaNpp",
+      "value": "3644.0%",
+      "change": "+5.0pp",
       "series": "sage",
       "asOf": "2024",
       "note": "Annual release — value is static between WID.world's yearly updates."
