@@ -393,7 +393,7 @@
 
     <p class="footer__status">
       Data as of <span id="dataAsOf"></span> &middot;
-      Live via scheduled pipeline: FRED (T10Y2Y), BLS (unemployment gap), GDELT (tone sample), WID.world/OWID (top 1% wealth share, annual), US Census Bureau (Gini, annual) &middot;
+      Live via scheduled pipeline: FRED (T10Y2Y, labor share), BLS (unemployment gap), Census Bureau (Gini, White-Black income gap, both annual), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual) &middot;
       Still placeholder pending Tier 2 wiring: ECB SDW, EU ETS/Ember, US Treasury OFAC &middot;
       Dropped for lack of a low-lift API: Cornell/Illinois Labor Action Tracker, ACLED &middot;
       Planned discourse-analysis inputs: public speech transcripts, official party platform publications, and public posts from politicians' verified official accounts &mdash; not private citizens' social media &middot;
@@ -408,18 +408,24 @@
     // Pages is static, so keys can't live in this file, and this also avoids
     // CORS on sources that don't allow browser calls).
     //
-    // Live in this pass: FRED T10Y2Y, BLS Black-White unemployment gap, and a
-    // GDELT tone sample (Tier 1), plus WID.world wealth share and Census Gini
-    // (kept as topline indicators by request, even though both only refresh
-    // annually — their "asOf" tag is what tells you how stale a given value
-    // is). Still placeholder, pending Tier 2 work: the ECB bond spread, OFAC
-    // additions, and EU ETS/carbon price. Labor Action Tracker and ACLED were
-    // dropped for this pass — no low-lift API path (see DECISIONS.md).
+    // Live in this pass: FRED (T10Y2Y, labor share), BLS (unemployment gap),
+    // Census (Gini, White-Black income gap), and OWID/WID (global top 1%
+    // wealth share, US top 1% income share). The annual-cadence ones are
+    // kept as topline indicators by request, even though they refresh only
+    // once a year — their "asOf" tag is what tells you how stale a given
+    // value is. GDELT tone was dropped by request, in favor of surfacing the
+    // project's own NLP/sentiment-analysis work more prominently instead of
+    // a proxy metric (see DECISIONS.md). Still placeholder, pending Tier 2
+    // work: the ECB bond spread, OFAC additions, and EU ETS/carbon price.
+    // Labor Action Tracker and ACLED were dropped for lack of a low-lift
+    // API path.
     const FALLBACK_INDICATORS = [
       { name: "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)", value: "-0.18pp", change: "+0.04pp", series: "terracotta" },
+      { name: "Labor Share of GDP (Penn World Table via FRED, annual)", value: "62.8%", change: "+0.1pp", series: "terracotta" },
       { name: "Black\u2013White Unemployment Rate Gap (BLS, monthly)", value: "3.1pp", change: "-0.2pp", series: "ristra" },
-      { name: "GDELT News Tone \u2014 Gov/Econ/Politics Sample (EN-heavy sources)", value: "-1.8", change: "-0.3", series: "ochre" },
+      { name: "White\u2013Black Median Household Income Gap (Census Bureau, annual)", value: "$23,000", change: "n/a", series: "ristra" },
       { name: "Global Top 1% Wealth Share (WID.world, via OWID)", value: "19.8%", change: "+0.3pp", series: "sage" },
+      { name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)", value: "20.5%", change: "+0.2pp", series: "turquoise" },
       { name: "Gini Coefficient \u2014 US Disposable Income (Census Bureau)", value: "0.412", change: "n/a", series: "sage" },
       { name: "Italy\u2013Germany 10Y Bond Spread (BTP\u2013Bund)", value: "1.62pp", change: "+0.08pp", series: "terracotta" },
       { name: "OFAC SDN List Additions (rolling 90-day)", value: "37", change: "+6", series: "turquoise" },
