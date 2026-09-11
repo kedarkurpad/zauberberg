@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T20:34:42.914Z",
+  "generatedAt": "2026-09-11T20:42:07.906Z",
   "indicators": [
     {
       "id": "treasury-spread",
@@ -38,8 +38,8 @@
     {
       "id": "wealth-share-top1",
       "name": "Global Top 1% Wealth Share (WID.world, via OWID)",
-      "value": "3644.0%",
-      "change": "+5.0pp",
+      "value": "36.4%",
+      "change": "+0.0pp",
       "series": "sage",
       "asOf": "2024",
       "note": "Annual release — value is static between WID.world's yearly updates."
@@ -47,7 +47,7 @@
     {
       "id": "income-share-top1-us",
       "name": "US Top 1% Income Share, Before Tax (WID.world, via OWID)",
-      "value": "2073.0%",
+      "value": "20.7%",
       "change": "+0.0pp",
       "series": "turquoise",
       "asOf": "2024",
