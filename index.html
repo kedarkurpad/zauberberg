@@ -156,6 +156,16 @@
     align-items: center;
     height: 100%;
     width: max-content;
+    /* Animation is applied via .is-animating (added in JS) rather than
+       here — starting it unconditionally on page load runs it against an
+       empty, zero-width track (real content arrives async, after the
+       ticker-data.json fetch resolves). Some mobile browsers then never
+       re-measure the %-based transform against the real width until a
+       later forced layout pass — e.g. a device rotation — which is why
+       "rotate the phone and it starts working" was a symptom, not a fix. */
+  }
+
+  .ticker__track.is-animating {
     animation: ticker-scroll 48s linear infinite;
   }
 
@@ -165,9 +175,16 @@
     height: 100%;
   }
 
-  .ticker:hover .ticker__track,
-  .ticker__track:focus-within {
-    animation-play-state: paused;
+  /* Pause-on-hover/focus is a keyboard-accessibility feature (lets someone
+     tabbing through items read one before it slides away) — scoped to
+     hover-capable pointers only, so a touch tap on mobile can't leave a
+     ticker item focused with nothing to clear it, silently stalling the
+     scroll. */
+  @media (hover: hover) {
+    .ticker:hover .ticker__track,
+    .ticker__track:focus-within {
+      animation-play-state: paused;
+    }
   }
 
   @keyframes ticker-scroll {
@@ -222,6 +239,7 @@
   .ticker__delta[data-series="sage"]       { color: var(--sage); }
 
   @media (prefers-reduced-motion: reduce) {
+    .ticker__track.is-animating,
     .ticker__track { animation: none; }
     .ticker__viewport { overflow-x: auto; }
     .ticker__group[aria-hidden="true"] { display: none; }
@@ -457,6 +475,13 @@
       track.innerHTML =
         `<div class="ticker__group">${renderItems(indicators, false)}</div>` +
         `<div class="ticker__group" aria-hidden="true">${renderItems(indicators, true)}</div>`;
+      // Force a reflow before starting the animation so it measures the
+      // real, populated width instead of whatever (zero) width the empty
+      // track had before this content existed — see the CSS comment on
+      // .ticker__track for why this matters on mobile.
+      // eslint-disable-next-line no-unused-expressions
+      void track.offsetWidth;
+      track.classList.add("is-animating");
     }
 
     async function loadTickerData() {
