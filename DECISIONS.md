@@ -11,7 +11,7 @@ A module qualifies if it passes at least one pillar's test below. Growth, effici
    *Test: who holds leverage over production, finance, security, knowledge, or discourse structures?*
 2. **Distributional Justice** — Piketty; Milanovic.
    *Test: who gains or loses across a distribution, not just in aggregate?*
-3. **Peace, Conflict & Anti-Hegemony** — Galtung; Fanon; Jones (structural violence in disability/mental-health policy); Bacevich; Toft & Kushi.
+3. **Peace and Conflict** — Galtung; Fanon; Jones (structural violence in disability/mental-health policy); Bacevich; Toft & Kushi.
    *Test: does this reveal direct/structural violence, or the blowback cost of a dominant power's policy?*
 4. **Energy** — Klein; Riofrancos; Malm; Mitchell.
    *Test: does this show energy infrastructure, extraction, or transition politics as contested power, not just supply-and-demand economics?*
@@ -65,3 +65,4 @@ When a new decision is agreed on, add it under the matching category above as a 
 - 2026-09-11 (later) — Settled the "still open" hosting/pipeline/dataset items: GitHub Pages + scheduled GitHub Action writing a static `ticker-data.json`; ticker indicators tiered by API access and refresh cadence (Tier 1: FRED, BLS, GDELT); WID.world wealth share and Census Gini kept as topline indicators despite annual-only refresh, by request; Labor Action Tracker and ACLED dropped from v1 for lack of a low-lift API path; EU ETS indicator re-sourced from Ember Climate (ICE Endex is paid/licensed) — logged under Technical Requirements.
 - 2026-09-11 (later still) — Dropped GDELT tone from the ticker: unreliable from the GitHub Actions runner (network-level failures survived retries and a browser User-Agent fix) and, separately, project preference to give the site's own NLP/sentiment-analysis panels more visual weight than a borrowed proxy metric — logged under Technical Requirements.
 - 2026-09-11 (even later) — Added three more ticker indicators by reusing already-established API access (no new secrets/plumbing): FRED labor share of GDP, Census White\u2013Black household income gap, and OWID/WID US top 1% income share — logged under Technical Requirements.
+- 2026-09-11 (later yet) — Renamed Pillar 3 heading from "Peace, Conflict & Anti-Hegemony" to "Peace and Conflict"; theorists and the blowback-cost test are unchanged, so anti-hegemony literature (Bacevich; Toft & Kushi) remains in scope under the shorter name.
