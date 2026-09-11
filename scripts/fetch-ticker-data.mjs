@@ -12,15 +12,13 @@
  *   CENSUS_API_KEY - https://api.census.gov/data/key_signup.html (free, optional)
  *
  * Design notes (see DECISIONS.md, Technical Requirements):
- *   - Only Tier 1 (FRED, BLS, GDELT) + the two annual indicators (WID/OWID
- *     wealth share, Census Gini) are wired up here. Tier 2 (ECB spread, OFAC
- *     additions, EU ETS/Ember) is intentionally deferred.
+ *   - Wired up: FRED (T10Y2Y, labor share), BLS (unemployment gap), Census
+ *     (Gini, White-Black income gap), OWID/WID (global top 1% wealth share,
+ *     US top 1% income share). GDELT tone was dropped by request — see
+ *     DECISIONS.md changelog. Tier 2 (ECB spread, OFAC additions, EU
+ *     ETS/Ember) is intentionally deferred.
  *   - If a fetch fails, we keep whatever value was already in ticker-data.json
  *     for that indicator rather than crashing the whole run or writing a blank.
- *   - "GDELT tone" is NOT a true global average — the DOC 2.0 API requires a
- *     search term, so this is a broad-topic sample (gov/econ/politics
- *     coverage, English-heavy sources), labeled accordingly rather than as
- *     "Global Average Tone."
  */
 
 import { writeFile, readFile } from "node:fs/promises";
@@ -54,32 +52,8 @@ async function safeFetchJson(url, opts) {
 // unreachable from CI runners (network-level "fetch failed", not an HTTP
 // error). Retry a couple of times with a short timeout before giving up and
 // letting main() fall back to the previous value.
-async function fetchJsonWithRetry(url, { attempts = 3, timeoutMs = 15000 } = {}) {
-  let lastErr;
-  for (let i = 0; i < attempts; i++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timer);
-      const text = await res.text();
-      if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}: ${text.slice(0, 200)}`);
-      try {
-        return JSON.parse(text);
-      } catch {
-        // GDELT sometimes returns a 200 with a plain-text error body
-        // (e.g. malformed query) instead of JSON — surface it plainly
-        // rather than letting JSON.parse's cryptic message be the only clue.
-        throw new Error(`Non-JSON response: ${text.slice(0, 200)}`);
-      }
-    } catch (err) {
-      clearTimeout(timer);
-      lastErr = err;
-      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
-    }
-  }
-  throw lastErr;
-}
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
 
 async function safeFetchText(url, opts) {
   const res = await fetch(url, opts);
@@ -104,6 +78,32 @@ async function fetchFred() {
     change: fmtSigned(latest - prev),
     series: "terracotta",
     asOf: obs[0].date,
+  };
+}
+
+// ---- FRED: Labor Share of Income (Penn World Table via FRED) ----
+// Deliberately using LABSHPUSA156NRUG (units: Ratio, i.e. unambiguously a
+// share of GDP) rather than BLS's quarterly index series (PRS84006173),
+// whose units are an index base rather than a clean percentage — annual
+// cadence here, consistent with the other annual indicators already on
+// the ticker (WID wealth/income share, Census Gini).
+async function fetchLaborShare() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=LABSHPUSA156NRUG&api_key=${key}&file_type=json&sort_order=desc&limit=2`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? []).filter((o) => o.value !== ".");
+  if (obs.length < 1) throw new Error("FRED: no usable labor-share observations");
+  const latest = parseFloat(obs[0].value) * 100;
+  const prev = obs.length > 1 ? parseFloat(obs[1].value) * 100 : latest;
+  return {
+    id: "labor-share",
+    name: "Labor Share of GDP (Penn World Table via FRED, annual)",
+    value: `${latest.toFixed(1)}%`,
+    change: fmtSigned(latest - prev, 1, "pp"),
+    series: "terracotta",
+    asOf: obs[0].date,
+    note: "Annual release \u2014 value is static between updates.",
   };
 }
 
@@ -147,35 +147,6 @@ async function fetchBls() {
   };
 }
 
-// ---- GDELT: broad-topic tone sample (NOT a true global average) ----
-async function fetchGdelt() {
-  // GDELT's DOC 2.0 API requires top-level OR clauses to be parenthesized —
-  // an unparenthesized OR returns a 200 with a plain-text syntax-error body
-  // instead of JSON (that's the "fetch failed"/"Unexpected token" symptom).
-  const params = new URLSearchParams({
-    query: "(government OR economy OR politics)",
-    mode: "timelinetone",
-    format: "json",
-    timespan: "3d",
-  });
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
-  const data = await fetchJsonWithRetry(url);
-  const points = data.timeline?.[0]?.data ?? [];
-  if (points.length < 1) throw new Error("GDELT: empty timeline");
-  const latest = points[points.length - 1];
-  const prev = points.length > 1 ? points[points.length - 2] : latest;
-  const latestVal = Number(latest.value);
-  const prevVal = Number(prev.value);
-  return {
-    id: "gdelt-tone",
-    name: "GDELT News Tone \u2014 Gov/Econ/Politics Sample (EN-heavy sources)",
-    value: latestVal.toFixed(1),
-    change: fmtSigned(latestVal - prevVal, 1, ""),
-    series: "ochre",
-    asOf: latest.date,
-  };
-}
-
 // ---- OWID (WID.world-sourced): Global Top 1% Wealth Share ----
 // Minimal CSV line parser (handles quoted fields) — OWID's CSVs are simple,
 // but this avoids silently misaligning columns if a field is ever quoted.
@@ -198,45 +169,72 @@ function parseCsvLine(line) {
   return out.map((s) => s.trim());
 }
 
-async function fetchWealthShare() {
-  const url =
-    "https://ourworldindata.org/grapher/wealth-share-richest.csv?v=1&csvType=full&useColumnShortNames=false&quantile=richest_1pct";
-  const csv = await safeFetchText(url, { headers: { "User-Agent": "dashboard-ticker/1.0" } });
+async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderRegex }) {
+  const csv = await safeFetchText(url, { headers: { "User-Agent": BROWSER_UA } });
   const lines = csv.split(/\r?\n/).filter(Boolean);
   const header = parseCsvLine(lines[0]);
   const entityIdx = header.indexOf("Entity");
   const yearIdx = header.indexOf("Year");
   const codeIdx = header.indexOf("Code");
-  // The value column is whichever one ISN'T Entity/Code/Year — don't assume
-  // it's always last, and prefer a "...1%..." header if more than one
-  // non-metadata column is present (e.g. if OWID ever stops honoring the
-  // ?quantile= filter server-side).
   const candidateIdxs = header
     .map((_, idx) => idx)
     .filter((idx) => idx !== entityIdx && idx !== yearIdx && idx !== codeIdx);
   if (entityIdx === -1 || yearIdx === -1 || candidateIdxs.length < 1) {
-    throw new Error(`OWID/WID: unexpected columns: ${header.join(" | ")}`);
+    throw new Error(`OWID: unexpected columns: ${header.join(" | ")}`);
   }
-  const valueIdx =
-    candidateIdxs.find((idx) => /1\s*%|richest_1pct/i.test(header[idx])) ?? candidateIdxs[0];
+  const valueIdx = preferValueHeaderRegex
+    ? candidateIdxs.find((idx) => preferValueHeaderRegex.test(header[idx])) ?? candidateIdxs[0]
+    : candidateIdxs[0];
 
-  const worldRows = lines
+  const rows = lines
     .slice(1)
     .map(parseCsvLine)
-    .filter((cols) => cols[entityIdx] === "World" && cols[valueIdx] !== "" && !Number.isNaN(parseFloat(cols[valueIdx])))
+    .filter((cols) => cols[entityIdx] === entityName && cols[valueIdx] !== "" && !Number.isNaN(parseFloat(cols[valueIdx])))
     .sort((a, b) => Number(b[yearIdx]) - Number(a[yearIdx]));
-  if (worldRows.length < 1) throw new Error("OWID/WID: no usable World rows found");
-  const latest = worldRows[0];
-  const prev = worldRows[1] ?? latest;
-  const latestPct = parseFloat(latest[valueIdx]) * 100;
-  const prevPct = parseFloat(prev[valueIdx]) * 100;
+  if (rows.length < 1) throw new Error(`OWID: no usable "${entityName}" rows found`);
+  const latest = rows[0];
+  const prev = rows[1] ?? latest;
+  return {
+    latestPct: parseFloat(latest[valueIdx]) * 100,
+    prevPct: parseFloat(prev[valueIdx]) * 100,
+    year: latest[yearIdx],
+  };
+}
+
+async function fetchWealthShare() {
+  const url =
+    "https://ourworldindata.org/grapher/wealth-share-richest.csv?v=1&csvType=full&useColumnShortNames=false&quantile=richest_1pct";
+  const { latestPct, prevPct, year } = await fetchOwidPercentIndicator({
+    url,
+    entityName: "World",
+    preferValueHeaderRegex: /1\s*%|richest_1pct/i,
+  });
   return {
     id: "wealth-share-top1",
     name: "Global Top 1% Wealth Share (WID.world, via OWID)",
     value: `${latestPct.toFixed(1)}%`,
     change: fmtSigned(latestPct - prevPct, 1, "pp"),
     series: "sage",
-    asOf: latest[yearIdx],
+    asOf: year,
+    note: "Annual release \u2014 value is static between WID.world's yearly updates.",
+  };
+}
+
+// ---- OWID (WID.world-sourced): US Top 1% Income Share (before tax) ----
+async function fetchIncomeShareUS() {
+  const url =
+    "https://ourworldindata.org/grapher/income-share-top-1-before-tax-wid.csv?v=1&csvType=full&useColumnShortNames=false";
+  const { latestPct, prevPct, year } = await fetchOwidPercentIndicator({
+    url,
+    entityName: "United States",
+  });
+  return {
+    id: "income-share-top1-us",
+    name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)",
+    value: `${latestPct.toFixed(1)}%`,
+    change: fmtSigned(latestPct - prevPct, 1, "pp"),
+    series: "turquoise",
+    asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
 }
@@ -270,9 +268,41 @@ async function fetchGini() {
   throw new Error(`Census Gini: no year worked (${lastErr?.message})`);
 }
 
+// ---- US Census: White-Black median household income gap (ACS 1-year) ----
+async function fetchIncomeGap() {
+  const key = process.env.CENSUS_API_KEY; // optional
+  const now = new Date().getFullYear();
+  let lastErr;
+  for (const year of [now - 1, now - 2, now - 3]) {
+    try {
+      const url = `https://api.census.gov/data/${year}/acs/acs1?get=NAME,B19013A_001E,B19013B_001E&for=us:1${
+        key ? `&key=${key}` : ""
+      }`;
+      const data = await safeFetchJson(url);
+      const row = data[1];
+      const white = parseFloat(row[1]);
+      const black = parseFloat(row[2]);
+      if (Number.isNaN(white) || Number.isNaN(black)) throw new Error("Census: non-numeric income value");
+      const gap = white - black;
+      return {
+        id: "income-gap-us",
+        name: "White\u2013Black Median Household Income Gap (Census Bureau, annual)",
+        value: `$${Math.round(gap).toLocaleString("en-US")}`,
+        change: "n/a",
+        series: "ristra",
+        asOf: String(year),
+        note: "Annual ACS 1-year release \u2014 value is static between updates.",
+      };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw new Error(`Census income gap: no year worked (${lastErr?.message})`);
+}
+
 async function main() {
   const existing = await loadExisting();
-  const fetchers = [fetchFred, fetchBls, fetchGdelt, fetchWealthShare, fetchGini];
+  const fetchers = [fetchFred, fetchLaborShare, fetchBls, fetchIncomeGap, fetchWealthShare, fetchIncomeShareUS, fetchGini];
   const results = [];
   for (const fn of fetchers) {
     try {
@@ -282,9 +312,11 @@ async function main() {
       // Fall back to whatever was already published for this indicator, if any.
       const idGuess = {
         fetchFred: "treasury-spread",
+        fetchLaborShare: "labor-share",
         fetchBls: "unemployment-gap",
-        fetchGdelt: "gdelt-tone",
+        fetchIncomeGap: "income-gap-us",
         fetchWealthShare: "wealth-share-top1",
+        fetchIncomeShareUS: "income-share-top1-us",
         fetchGini: "gini-us",
       }[fn.name];
       if (existing[idGuess]) results.push(existing[idGuess]);
