@@ -1,0 +1,81 @@
+{
+  "generatedAt": "2026-09-12T01:54:23.559Z",
+  "generationMix": {
+    "asOf": "2025",
+    "series": [
+      {
+        "year": 2020,
+        "fossil": 64.7,
+        "nuclear": 21.2,
+        "renewables": 14
+      },
+      {
+        "year": 2021,
+        "fossil": 64.4,
+        "nuclear": 20.2,
+        "renewables": 15.4
+      },
+      {
+        "year": 2022,
+        "fossil": 63.4,
+        "nuclear": 19.3,
+        "renewables": 17.3
+      },
+      {
+        "year": 2023,
+        "fossil": 62.7,
+        "nuclear": 19.5,
+        "renewables": 17.8
+      },
+      {
+        "year": 2024,
+        "fossil": 61.5,
+        "nuclear": 19,
+        "renewables": 19.5
+      },
+      {
+        "year": 2025,
+        "fossil": 60.3,
+        "nuclear": 18.5,
+        "renewables": 21.2
+      }
+    ]
+  },
+  "crudeImports": {
+    "asOf": "2026-06",
+    "countries": [
+      {
+        "name": "NA",
+        "value": 41.3
+      },
+      {
+        "name": "CAN",
+        "value": 32.6
+      },
+      {
+        "name": "NA",
+        "value": 6.6
+      },
+      {
+        "name": "VEN",
+        "value": 5
+      },
+      {
+        "name": "MEX",
+        "value": 1.9
+      },
+      {
+        "name": "GUY",
+        "value": 1.7
+      },
+      {
+        "name": "COL",
+        "value": 1.5
+      },
+      {
+        "name": "Other",
+        "value": 9.4
+      }
+    ]
+  }
+}
