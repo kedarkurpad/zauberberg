@@ -4,8 +4,10 @@
  * and writes /ticker-data.json for the static page to read. Also fetches the
  * Energy module's generation-mix chart dataset and writes /energy-data.json
  * alongside it, the Distributional Justice module's US Gini time series,
- * writing /gini-data.json, and the Structural Power module's Student Loans
- * Owned and Securitized time series, writing /student-loan-data.json.
+ * writing /gini-data.json, the Structural Power module's Student Loans
+ * Owned and Securitized time series, writing /student-loan-data.json, and
+ * the Peace and Conflict module's forcibly-displaced-persons-by-region
+ * breakdown, writing /peace-data.json.
  *
  * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
  * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
@@ -29,9 +31,10 @@
  *     Broad Dollar Index, WTI 20-day realized volatility, US home-price
  *     YoY growth), BLS (unemployment gap), OWID/WID (global top 1% wealth
  *     share, US top 1% income share), EIA (Strategic Petroleum
- *     Reserve). GDELT tone was dropped by request \u2014 see DECISIONS.md
- *     changelog. Tier 2 (ECB spread, OFAC additions, EU ETS/Ember) is
- *     intentionally deferred.
+ *     Reserve), UNHCR (forcibly displaced persons, global total). GDELT
+ *     tone was dropped by request \u2014 see DECISIONS.md changelog. Tier 2
+ *     (ECB spread, OFAC additions, EU ETS/Ember) is intentionally
+ *     deferred.
  *   - Energy module (separate output, energy-data.json, not the ticker):
  *     fetchGenerationMix(), EIA, reusing the existing EIA_API_KEY (no new
  *     secret). Written without a live test call (no network egress in this
@@ -47,6 +50,16 @@
  *     same leverage logic already used for the SPR indicator, whereas a
  *     bare price level would fail the Pillar 4 relevance test as plain
  *     supply-and-demand economics. See DECISIONS.md.
+ *   - Core ticker also gained fetchDisplacement() (UNHCR Refugee Data
+ *     Finder API, fully keyless, no new secret), a Pillar 3 indicator:
+ *     global forcibly displaced persons (refugees + asylum-seekers + IDPs
+ *     + other people in need of international protection), annual. Takes
+ *     the ristra token already reserved for Pillar 3. Peace module
+ *     (separate output, peace-data.json): fetchDisplacementByRegion(),
+ *     same API, breaking the same population down by UNHCR region of
+ *     origin for the panel's grouped bar chart \u2014 the dashboard's first
+ *     non-time-series panel chart. Both unverified against a live
+ *     response (no network egress in this sandbox); see DECISIONS.md.
  *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
  *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
  *     a single-point annual read with no prior-year diff — so neither
@@ -64,6 +77,7 @@ const OUT_PATH = path.resolve(process.cwd(), "ticker-data.json");
 const ENERGY_OUT_PATH = path.resolve(process.cwd(), "energy-data.json");
 const GINI_OUT_PATH = path.resolve(process.cwd(), "gini-data.json");
 const STUDENT_LOAN_OUT_PATH = path.resolve(process.cwd(), "student-loan-data.json");
+const PEACE_OUT_PATH = path.resolve(process.cwd(), "peace-data.json");
 
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
@@ -102,6 +116,15 @@ async function loadExistingGini() {
 async function loadExistingStudentLoan() {
   try {
     const raw = await readFile(STUDENT_LOAN_OUT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function loadExistingPeace() {
+  try {
+    const raw = await readFile(PEACE_OUT_PATH, "utf8");
     return JSON.parse(raw);
   } catch {
     return {};
@@ -705,6 +728,139 @@ async function fetchEnergyVolatility() {
 }
 
 
+// ---- UNHCR: Forcibly Displaced Persons, Global Total (Pillar 3) ----
+// Added 2026-09-11 by request. Sum of refugees, asylum-seekers, IDPs, and
+// other people in need of international protection (UNHCR's own "forcibly
+// displaced" headline definition) \u2014 deliberately excludes the
+// stand-alone stateless-persons column, since UNHCR's own methodology
+// notes most stateless people were never displaced. Read per Galtung/
+// Fanon as the human toll of direct/structural violence and dominant-
+// power blowback, not a bare migration count \u2014 see DECISIONS.md,
+// Technical Requirements.
+//
+// UNHCR's Refugee Data Finder API (base https://api.unhcr.org/population/v1/)
+// is fully keyless \u2014 no registration, no new secret \u2014 chosen over
+// ACLED (already dropped from v1) and UCDP's GED API (free but needs its
+// own token) for that reason. Omitting both coo and coa params aggregates
+// every country pair into a single global row per the API's documented
+// behavior ("if not specified, data for this dimension will be summed and
+// aggregated to one row").
+//
+// Deliberately NO `polarity` field for now \u2014 see the DECISIONS.md entry
+// for why this is flagged as a candidate rather than decided here.
+//
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix/fetchGiniSeries):
+// written without a live test call (no network egress in this sandbox)
+// \u2014 the /population/ endpoint's exact JSON field names (assumed here to
+// mirror the documented /demographics/ shape: one row per year with
+// refugees/asylum_seekers/idps/oip columns) are inferred from the API's
+// published docs, not confirmed against a real response. Verify the
+// first real Action run's row shape before trusting this unattended.
+async function fetchDisplacement() {
+  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${new Date().getFullYear() - 2}&yearTo=${new Date().getFullYear()}&coo_all=false&coa_all=false&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
+  const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
+  if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
+
+  const byYear = {};
+  for (const r of rows) {
+    const y = Number(r.year);
+    const total =
+      (Number(r.refugees) || 0) +
+      (Number(r.asylum_seekers) || 0) +
+      (Number(r.idps) || 0) +
+      (Number(r.oip) || 0);
+    byYear[y] = (byYear[y] ?? 0) + total;
+  }
+  const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
+  if (years.length < 1) throw new Error("UNHCR: could not aggregate any yearly totals");
+  const latestYear = years[0];
+  const prevYear = years[1] ?? latestYear;
+  const latest = byYear[latestYear] / 1_000_000; // persons -> millions
+  const prev = byYear[prevYear] / 1_000_000;
+
+  return {
+    id: "forcibly-displaced",
+    name: "Forcibly Displaced Persons \u2014 Global Total (UNHCR)",
+    value: `${latest.toFixed(1)}M`,
+    change: fmtSigned(latest - prev, 1, "M"),
+    series: "ristra",
+    cadence: "annual",
+    asOf: String(latestYear),
+    note: "Refugees + asylum-seekers + IDPs + other people in need of international protection, per UNHCR's own \u2018forcibly displaced\u2019 definition. Annual release \u2014 value is static between updates.",
+  };
+}
+
+// ---- UNHCR: Forcibly displaced persons by region of origin (Pillar 3 panel chart) ----
+// Powers the Peace and Conflict (Pillar 3) panel's grouped bar chart \u2014
+// see index.html and DECISIONS.md, "Peace and Conflict module
+// visualizations." This is the dashboard's first non-time-series panel
+// chart: a cross-sectional snapshot of where displacement originates,
+// latest year only, not a trend \u2014 requested in place of a line chart.
+//
+// Region bucketing is built at fetch time from the API's own /countries/
+// endpoint (country -> UNHCR region), not a hardcoded country list, so
+// the grouping doesn't silently go stale if regional classifications
+// change. Reuses the same global-total year logic as fetchDisplacement()
+// above but broken down by country of origin (coo_all=true) instead of
+// aggregated to one row.
+//
+// CAVEAT (same pattern as fetchDisplacement): written without a live test
+// call (no network egress in this sandbox) \u2014 the assumed field name for
+// a country's UNHCR region on the /countries/ response (`unhcr_region_name`)
+// is inferred from the API's documented region-filtering params, not
+// confirmed against a real payload. Verify the first real Action run's
+// response shape before trusting this unattended.
+async function fetchDisplacementByRegion() {
+  const countriesUrl = `https://api.unhcr.org/population/v1/countries/?limit=300`;
+  const countriesData = await safeFetchJson(countriesUrl, { headers: { "User-Agent": BROWSER_UA } });
+  const countryRows = countriesData?.items ?? countriesData?.data ?? [];
+  if (!countryRows.length) throw new Error("UNHCR: no usable /countries rows returned");
+  const regionByCode = {};
+  for (const c of countryRows) {
+    const code = c.code ?? c.iso3 ?? c.id;
+    const region = c.unhcr_region_name ?? c.unhcrRegionName ?? c.region ?? "Other/unknown";
+    if (code) regionByCode[code] = region;
+  }
+
+  const thisYear = new Date().getFullYear();
+  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  let data = await safeFetchJson(popUrl, { headers: { "User-Agent": BROWSER_UA } });
+  let rows = data?.items ?? data?.data ?? [];
+  // Fall back one year if the current year has no published rows yet
+  // (annual release, so the latest full year is often the prior one).
+  if (!rows.length) {
+    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+    data = await safeFetchJson(fallbackUrl, { headers: { "User-Agent": BROWSER_UA } });
+    rows = data?.items ?? data?.data ?? [];
+  }
+  if (!rows.length) throw new Error("UNHCR: no usable by-origin population rows returned");
+
+  const byRegion = {};
+  let asOfYear = null;
+  for (const r of rows) {
+    asOfYear = r.year ?? asOfYear;
+    const code = r.coo ?? r.coo_iso;
+    const region = regionByCode[code] ?? "Other/unknown";
+    const total =
+      (Number(r.refugees) || 0) +
+      (Number(r.asylum_seekers) || 0) +
+      (Number(r.idps) || 0) +
+      (Number(r.oip) || 0);
+    byRegion[region] = (byRegion[region] ?? 0) + total;
+  }
+
+  const series = Object.entries(byRegion)
+    .map(([region, total]) => ({ region, millions: Math.round((total / 1_000_000) * 100) / 100 }))
+    .filter((d) => d.millions > 0)
+    .sort((a, b) => b.millions - a.millions)
+    .slice(0, 7); // top regions; keeps the bar chart readable
+
+  if (!series.length) throw new Error("UNHCR: could not bucket any by-origin rows into regions");
+
+  return { asOf: String(asOfYear ?? thisYear), series };
+}
+
 // NOT in the `fetchers` pipeline below as of the core-set review: this
 // hardcodes change: "n/a" (single-point read, no prior-year diff ever
 // fetched), so it carries no data-driven indication of movement and was
@@ -776,7 +932,7 @@ async function fetchIncomeGap() {
 
 async function main() {
   const existing = await loadExisting();
-  const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchHousingPriceIndex, fetchSPR, fetchEnergyVolatility];
+  const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchHousingPriceIndex, fetchSPR, fetchEnergyVolatility, fetchDisplacement];
   const results = [];
   for (const fn of fetchers) {
     try {
@@ -794,6 +950,7 @@ async function main() {
         fetchHousingPriceIndex: "housing-price-index",
         fetchSPR: "spr-level",
         fetchEnergyVolatility: "energy-price-volatility",
+        fetchDisplacement: "forcibly-displaced",
       }[fn.name];
       if (existing[idGuess]) results.push(existing[idGuess]);
     }
@@ -861,6 +1018,26 @@ async function main() {
   }
   await writeFile(STUDENT_LOAN_OUT_PATH, JSON.stringify(studentLoanOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${STUDENT_LOAN_OUT_PATH}.`);
+
+  // Peace and Conflict (Pillar 3) panel: forcibly displaced persons by
+  // region of origin, latest year \u2014 own sibling output file, same
+  // reason gini-data.json/energy-data.json/student-loan-data.json are
+  // separate from ticker-data.json (a chart series/breakdown, not a
+  // single ticker value). Same fall-back-to-last-published behavior on
+  // fetch failure.
+  const existingPeace = await loadExistingPeace();
+  let peaceOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const peace = await fetchDisplacementByRegion();
+    peaceOutput = { generatedAt: peaceOutput.generatedAt, ...peace };
+  } catch (err) {
+    console.error(`[warn] fetchDisplacementByRegion failed: ${err.message}`);
+    if (existingPeace.series) {
+      peaceOutput = { ...existingPeace, generatedAt: peaceOutput.generatedAt };
+    }
+  }
+  await writeFile(PEACE_OUT_PATH, JSON.stringify(peaceOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${PEACE_OUT_PATH}.`);
 }
 
 main().catch((err) => {
