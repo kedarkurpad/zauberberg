@@ -310,27 +310,16 @@
   }
 
   /* ================= ENERGY MODULE (Pillar 4) ================= */
-  /* Color-token exception, logged in DECISIONS.md: these two charts use
-     the full 5-token palette as a plain categorical set (one color per
-     series/country), not per-pillar identity — a single ochre token
-     can't distinguish 3–8 series. Scoped to charts internal to this one
-     module panel; the ticker's one-token-per-pillar rule is unaffected. */
-
-  .panel-placeholder--energy {
-    grid-column: span 2;
-  }
-
-  .energy-views {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-top: 4px;
-  }
-
-  @media (max-width: 720px) {
-    .panel-placeholder--energy { grid-column: span 1; }
-    .energy-views { grid-template-columns: 1fr; }
-  }
+  /* Color-token exception, logged in DECISIONS.md: this chart uses the
+     full 5-token palette as a plain categorical set (one color per
+     series), not per-pillar identity — a single ochre token can't
+     distinguish 3+ series. Scoped to this one chart; the ticker's
+     one-token-per-pillar rule is unaffected.
+     (The crude-oil-imports treemap that used to sit alongside this chart,
+     and the two-column .energy-views layout / panel-placeholder--energy
+     span-2 override that laid the pair out side by side, were removed
+     2026-09-11 by request — see DECISIONS.md changelog. This panel is now
+     sized like any other panel in the grid.) */
 
   .energy-view__label {
     font-size: 11px;
@@ -368,39 +357,6 @@
     height: 9px;
     border-radius: 2px;
     flex: 0 0 auto;
-  }
-
-  .treemap {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    border: 1px solid var(--border);
-  }
-
-  .treemap__cell {
-    position: absolute;
-    box-sizing: border-box;
-    border: 1px solid var(--bg);
-    padding: 5px 7px;
-    overflow: hidden;
-  }
-
-  .treemap__cell-name {
-    display: block;
-    font-size: 10px;
-    color: var(--bg);
-    opacity: 0.85;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .treemap__cell-value {
-    display: block;
-    font-family: var(--font-data);
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--bg);
   }
 
   .energy-view__disclaimer {
@@ -554,22 +510,16 @@
         <h2 class="panel-placeholder__title" aria-label="Peace and Conflict">3</h2>
         <p class="panel-placeholder__note">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
       </div>
-      <div class="panel-placeholder panel-placeholder--energy">
+      <div class="panel-placeholder">
         <h2 class="panel-placeholder__title" aria-label="Energy">4</h2>
-        <div class="energy-module" id="energyModule" aria-label="Energy module: illustrative placeholder visualizations">
-          <div class="energy-views">
-            <div class="energy-view">
-              <h3 class="energy-view__label">U.S. generation mix, fossil vs. nuclear vs. renewables</h3>
-              <div class="energy-chart" id="energyMixChart"></div>
-              <div class="energy-legend" id="energyMixLegend"></div>
-            </div>
-            <div class="energy-view">
-              <h3 class="energy-view__label">Crude oil imports by country of origin</h3>
-              <div class="treemap" id="importTreemap"></div>
-            </div>
+        <div class="energy-module" id="energyModule" aria-label="Energy module: illustrative placeholder visualization">
+          <div class="energy-view">
+            <h3 class="energy-view__label">U.S. generation mix, fossil vs. nuclear vs. renewables</h3>
+            <div class="energy-chart" id="energyMixChart"></div>
+            <div class="energy-legend" id="energyMixLegend"></div>
           </div>
           <p class="energy-view__disclaimer" id="energyDisclaimer">
-            Illustrative placeholder values only — not pulled from a live source. Pending: an EIA fetch for generation mix (<code>electricity/electric-power-operational-data</code> or <code>total-energy</code>) and crude imports by origin (<code>petroleum/move/impcus/data</code>), wired through the same server-side pipeline as the ticker (see DECISIONS.md).
+            Illustrative placeholder values only — not pulled from a live source. Pending: an EIA fetch for generation mix (<code>electricity/electric-power-operational-data</code> or <code>total-energy</code>), wired through the same server-side pipeline as the ticker (see DECISIONS.md).
           </p>
         </div>
       </div>
@@ -587,7 +537,7 @@
 
     <p class="footer__status">
       Data as of <span id="dataAsOf"></span> &middot;
-      Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly) &middot;
+      Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series, WTI 20-day realized volatility, US home price YoY growth), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly) &middot;
       Tracked but not in the core ticker: Census Bureau White\u2013Black income gap (a single-point annual read with no computed year-over-year change; a second, separate Census-ACS Gini fetch is also defined but unused now that the FRED-sourced Gini time series above covers the Distributional Justice panel) &middot;
       Still placeholder pending Tier 2 wiring: ECB SDW, EU ETS/Ember, US Treasury OFAC &middot;
       Dropped for lack of a low-lift API: Cornell/Illinois Labor Action Tracker, ACLED &middot;
@@ -604,9 +554,19 @@
     // CORS on sources that don't allow browser calls).
     //
     // Live in this pass: FRED (T10Y2Y, labor share, Nominal Broad Dollar
-    // Index), BLS (unemployment gap), OWID/WID (global top 1% wealth
-    // share, US top 1% income share), and EIA (Strategic Petroleum
-    // Reserve). The annual-cadence ones are kept as topline indicators by request,
+    // Index, WTI 20-day realized volatility, US home-price YoY growth),
+    // BLS (unemployment gap), OWID/WID (global top 1% wealth share, US
+    // top 1% income share), and EIA (Strategic Petroleum Reserve). The
+    // energy-price-volatility indicator is deliberately the *swing* in
+    // WTI crude, not its level — a bare price would fail the Pillar 4
+    // relevance test the same way a bare SPR commodity price would; see
+    // fetch-ticker-data.mjs and DECISIONS.md. The housing-price-index
+    // indicator shows YoY appreciation (Piketty asset-wealth framing,
+    // Pillar 2) and, unlike wealth-share-top1/income-share-top1-us,
+    // deliberately carries no `polarity` field — home-price gains have
+    // mixed effects across a broad homeowner population rather than the
+    // unambiguous top-1%-concentration story those two indicators tell;
+    // see DECISIONS.md. The annual-cadence ones are kept as topline indicators by request,
     // even though they refresh only once a year — their "asOf" tag is what
     // tells you how stale a given value is. GDELT tone was dropped by
     // request, in favor of surfacing the project's own NLP/sentiment-
@@ -641,7 +601,9 @@
       { name: "Black\u2013White Unemployment Rate Gap (BLS, monthly)", value: "3.1pp", change: "-0.2pp", series: "sage", cadence: "monthly" },
       { name: "Global Top 1% Wealth Share (WID.world, via OWID)", value: "19.8%", change: "+0.3pp", series: "sage", cadence: "annual", polarity: "bad-up" },
       { name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)", value: "20.5%", change: "+0.2pp", series: "sage", cadence: "annual", polarity: "bad-up" },
+      { name: "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)", value: "+3.8%", change: "-0.4pp", series: "sage", cadence: "monthly" },
       { name: "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)", value: "285.4 MMbbl", change: "-1.2 MMbbl", series: "ochre", cadence: "weekly" },
+      { name: "Energy Price Volatility \u2014 WTI 20-Day Realized Vol (FRED: DCOILWTICO)", value: "34.2%", change: "+2.6pp", series: "ochre", cadence: "daily" },
       { name: "Lorem ipsum dolor sit amet", value: "Lorem", change: "+1.0", series: "terracotta", cadence: "daily" },
       { name: "Consectetur adipiscing elit", value: "Ipsum", change: "-1.0", series: "sage", cadence: "monthly" },
       { name: "Sed do eiusmod tempor incididunt", value: "Dolor", change: "n/a", series: "ochre", cadence: "annual" },
@@ -750,13 +712,15 @@
 
     // ============ ENERGY MODULE (Pillar 4) ============
     // Illustrative placeholder values ONLY — hand-set, not fetched. Framed
-    // per DECISIONS.md's Pillar 4 test (transition politics / import
-    // dependency as leverage, not bare supply-and-demand) rather than a
-    // neutral "energy mix" framing. Live wiring is future work: extend the
-    // same server-side GH Action → static JSON pattern used for
-    // ticker-data.json (see DECISIONS.md, Technical Requirements) with a
-    // fetchGenerationMix() (EIA electricity/electric-power-operational-data
-    // or total-energy) and fetchCrudeImports() (EIA petroleum/move/impcus/data).
+    // per DECISIONS.md's Pillar 4 test (transition politics, not bare
+    // supply-and-demand) rather than a neutral "energy mix" framing. Live
+    // wiring is future work: extend the same server-side GH Action →
+    // static JSON pattern used for ticker-data.json (see DECISIONS.md,
+    // Technical Requirements) with fetchGenerationMix() (EIA
+    // electricity/electric-power-operational-data or total-energy).
+    // (The crude-oil-imports-by-country treemap that used to sit alongside
+    // this chart was removed 2026-09-11 by request — see DECISIONS.md
+    // changelog.)
     const ENERGY_MIX_SERIES = [
       { key: "fossil", label: "Fossil (coal + gas + oil)", series: "terracotta" },
       { key: "nuclear", label: "Nuclear", series: "ochre" },
@@ -817,92 +781,15 @@
         </span>`).join("");
     }
 
-    const CRUDE_IMPORTS_PLACEHOLDER = [
-      { name: "Canada", value: 51 },
-      { name: "Mexico", value: 11 },
-      { name: "Saudi Arabia", value: 7 },
-      { name: "Iraq", value: 4 },
-      { name: "Colombia", value: 4 },
-      { name: "Ecuador", value: 3 },
-      { name: "Nigeria", value: 2 },
-      { name: "Other", value: 18 },
-    ];
-
-    // Compact "slice-and-dice" treemap: recursively splits the item list at
-    // the point that balances the two halves' totals, alternating a
-    // vertical/horizontal cut at each level. Not a full squarified
-    // treemap, but produces reasonable rectangles for a small (<10) item
-    // count without the extra algorithm complexity that would need.
-    function layoutTreemap(items, x, y, w, h, horizontal, out) {
-      if (items.length === 1) {
-        out.push({ ...items[0], x, y, w, h });
-        return;
-      }
-      const total = items.reduce((s, i) => s + i.value, 0);
-      let running = 0, splitIdx = 1, bestDiff = Infinity;
-      for (let i = 0; i < items.length - 1; i++) {
-        running += items[i].value;
-        const diff = Math.abs(running - (total - running));
-        if (diff < bestDiff) { bestDiff = diff; splitIdx = i + 1; }
-      }
-      const left = items.slice(0, splitIdx), right = items.slice(splitIdx);
-      const leftFrac = left.reduce((s, i) => s + i.value, 0) / total;
-      if (horizontal) {
-        const w1 = w * leftFrac;
-        layoutTreemap(left, x, y, w1, h, false, out);
-        layoutTreemap(right, x + w1, y, w - w1, h, false, out);
-      } else {
-        const h1 = h * leftFrac;
-        layoutTreemap(left, x, y, w, h1, true, out);
-        layoutTreemap(right, x, y + h1, w, h - h1, true, out);
-      }
-    }
-
-    // Colors are assigned by rank, not by country name, so this still makes
-    // sense once real EIA data (which may surface different countries than
-    // this placeholder set) replaces it. "Other" is always neutral,
-    // wherever it lands in the sort.
-    const TREEMAP_PALETTE = ["terracotta", "turquoise", "ochre", "ristra", "sage"];
-
-    function renderImportTreemap(items) {
-      const sorted = [...items].sort((a, b) => b.value - a.value);
-      let colorRank = 0;
-      const withColor = sorted.map((item) => {
-        if (item.name === "Other") return { ...item, series: "neutral" };
-        const series = TREEMAP_PALETTE[colorRank % TREEMAP_PALETTE.length];
-        colorRank += 1;
-        return { ...item, series };
-      });
-      const rects = [];
-      layoutTreemap(withColor, 0, 0, 100, 100, true, rects);
-      const el = document.getElementById("importTreemap");
-      el.innerHTML = rects.map((r) => {
-        const isNeutral = r.series === "neutral";
-        const bg = isNeutral ? "var(--panel)" : `var(--${r.series})`;
-        const textColor = isNeutral ? "var(--text)" : "var(--bg)";
-        const border = isNeutral ? "1px solid var(--border)" : "1px solid var(--bg)";
-        const showLabel = r.w > 9 && r.h > 9;
-        return `
-          <div class="treemap__cell" title="${r.name}: ${r.value}% of crude imports"
-               style="left:${r.x}%; top:${r.y}%; width:${r.w}%; height:${r.h}%; background:${bg}; border:${border}; color:${textColor};">
-            ${showLabel ? `<span class="treemap__cell-name" style="color:${textColor}">${r.name}</span><span class="treemap__cell-value" style="color:${textColor}">${r.value}%</span>` : ""}
-          </div>`;
-      }).join("");
-    }
-
     // Fetches ./energy-data.json (written by the same GH Action that writes
     // ticker-data.json — see fetch-ticker-data.mjs). Falls back to the
-    // illustrative placeholder arrays above on any failure, or if either
-    // field is missing/empty, exactly like loadTickerData() does for the
-    // ticker. The two datasets can independently be live or fallback (e.g.
-    // one EIA endpoint succeeds, the other doesn't), so the disclaimer
-    // reports each one's status separately rather than an all-or-nothing
-    // "live" flag.
+    // illustrative placeholder array above on any failure, or if the field
+    // is missing/empty, exactly like loadTickerData() does for the ticker.
+    // (This used to also handle a crudeImports dataset; that field was
+    // removed 2026-09-11 by request — see DECISIONS.md changelog.)
     async function loadEnergyData() {
       let generationMix = ENERGY_MIX_PLACEHOLDER;
-      let crudeImports = CRUDE_IMPORTS_PLACEHOLDER;
       let generationMixAsOf = null;
-      let crudeImportsAsOf = null;
 
       try {
         const res = await fetch("./energy-data.json", { cache: "no-store" });
@@ -912,27 +799,17 @@
           generationMix = data.generationMix.series;
           generationMixAsOf = data.generationMix.asOf ?? null;
         }
-        if (data.crudeImports?.countries?.length) {
-          crudeImports = data.crudeImports.countries;
-          crudeImportsAsOf = data.crudeImports.asOf ?? null;
-        }
       } catch (err) {
         console.warn("energy-data.json unavailable, using illustrative placeholder values:", err);
       }
 
       renderEnergyMixChart(generationMix, ENERGY_MIX_SERIES);
-      renderImportTreemap(crudeImports);
 
       const disclaimer = document.getElementById("energyDisclaimer");
       if (!disclaimer) return;
-      const parts = [];
-      parts.push(generationMixAsOf
+      disclaimer.textContent = generationMixAsOf
         ? `Generation mix as of ${generationMixAsOf} \u2014 live via scheduled pipeline (EIA).`
-        : `Generation mix: illustrative placeholder, not pulled from a live source (EIA electricity/electric-power-operational-data fetch pending or failed).`);
-      parts.push(crudeImportsAsOf
-        ? `Crude imports as of ${crudeImportsAsOf} \u2014 live via scheduled pipeline (EIA).`
-        : `Crude imports: illustrative placeholder, not pulled from a live source (EIA petroleum/move/impcus fetch pending or failed).`);
-      disclaimer.textContent = parts.join(" ");
+        : `Generation mix: illustrative placeholder, not pulled from a live source (EIA electricity/electric-power-operational-data fetch pending or failed).`;
     }
     loadEnergyData();
 
