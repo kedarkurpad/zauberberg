@@ -1,34 +1,34 @@
 {
-  "generatedAt": "2026-09-12T03:49:22.850Z",
+  "generatedAt": "2026-09-12T03:58:55.619Z",
   "asOf": "2025",
   "series": [
     {
-      "region": "Southern Asia",
-      "millions": 7.3
-    },
-    {
-      "region": "Western Africa",
-      "millions": 2.52
-    },
-    {
-      "region": "Middle Africa",
-      "millions": 1.47
-    },
-    {
       "region": "Western Asia",
-      "millions": 0.82
+      "millions": 18.42
     },
     {
-      "region": "South-eastern Asia",
-      "millions": 0.53
+      "region": "South America",
+      "millions": 15.55
+    },
+    {
+      "region": "Northern Africa",
+      "millions": 13.27
     },
     {
       "region": "Eastern Africa",
-      "millions": 0.39
+      "millions": 12.83
     },
     {
-      "region": "Southern Europe",
-      "millions": 0.15
+      "region": "Middle Africa",
+      "millions": 9.69
+    },
+    {
+      "region": "Eastern Europe",
+      "millions": 9.21
+    },
+    {
+      "region": "Western Africa",
+      "millions": 8.51
     }
   ]
 }

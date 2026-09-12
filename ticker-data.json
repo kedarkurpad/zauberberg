@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T03:49:22.348Z",
+  "generatedAt": "2026-09-12T03:58:55.010Z",
   "indicators": [
     {
       "id": "treasury-spread",
@@ -93,11 +93,11 @@
     {
       "id": "forcibly-displaced",
       "name": "Forcibly Displaced Persons — Global Total (UNHCR)",
-      "value": "9.2M",
-      "change": "+0.0M",
+      "value": "108.9M",
+      "change": "-4.4M",
       "series": "ristra",
       "cadence": "annual",
-      "asOf": "2024",
+      "asOf": "2025",
       "note": "Refugees + asylum-seekers + IDPs + other people in need of international protection, per UNHCR's own ‘forcibly displaced’ definition. Annual release — value is static between updates."
     }
   ]
