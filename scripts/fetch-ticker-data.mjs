@@ -9,14 +9,26 @@
  *   FRED_API_KEY   - https://fredaccount.stlouisfed.org/apikeys (free)
  *   BLS_API_KEY    - https://data.bls.gov/registrationEngine/ (free, optional —
  *                    script falls back to unauthenticated calls at a lower quota)
- *   CENSUS_API_KEY - https://api.census.gov/data/key_signup.html (free, optional)
+ *   CENSUS_API_KEY - https://api.census.gov/data/key_signup.html (free, optional —
+ *                    currently unused by the active pipeline; see fetchGini/
+ *                    fetchIncomeGap below)
+ *   EIA_API_KEY    - https://www.eia.gov/opendata/register.php (free, REQUIRED
+ *                    for fetchSPR \u2014 EIA does not offer an unauthenticated
+ *                    fallback the way BLS/Census do)
  *
  * Design notes (see DECISIONS.md, Technical Requirements):
- *   - Wired up: FRED (T10Y2Y, labor share), BLS (unemployment gap), Census
- *     (Gini, White-Black income gap), OWID/WID (global top 1% wealth share,
- *     US top 1% income share). GDELT tone was dropped by request — see
- *     DECISIONS.md changelog. Tier 2 (ECB spread, OFAC additions, EU
- *     ETS/Ember) is intentionally deferred.
+ *   - Wired up and in the core ticker: FRED (T10Y2Y, labor share, Nominal
+ *     Broad Dollar Index), BLS (unemployment gap), OWID/WID (global top 1%
+ *     wealth share, US top 1% income share), EIA (Strategic Petroleum
+ *     Reserve). GDELT tone was dropped by request \u2014 see DECISIONS.md
+ *     changelog. Tier 2 (ECB spread, OFAC additions, EU ETS/Ember) is
+ *     intentionally deferred.
+ *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
+ *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
+ *     a single-point annual read with no prior-year diff — so neither
+ *     carries a data-driven indication of movement, which was the bar set
+ *     for the core indicator set. Kept in the file, not deleted, in case a
+ *     future pass adds the second-year fetch + diff needed to qualify.
  *   - If a fetch fails, we keep whatever value was already in ticker-data.json
  *     for that indicator rather than crashing the whole run or writing a blank.
  */
@@ -77,6 +89,7 @@ async function fetchFred() {
     value: fmtPP(latest),
     change: fmtSigned(latest - prev),
     series: "terracotta",
+    cadence: "daily",
     asOf: obs[0].date,
   };
 }
@@ -102,12 +115,38 @@ async function fetchLaborShare() {
     value: `${latest.toFixed(1)}%`,
     change: fmtSigned(latest - prev, 1, "pp"),
     series: "terracotta",
+    cadence: "annual",
     asOf: obs[0].date,
     note: "Annual release \u2014 value is static between updates.",
   };
 }
 
-// ---- BLS: Black-White unemployment rate gap ----
+// ---- FRED: Nominal Broad U.S. Dollar Index (currency hegemony proxy) ----
+// Trade-weighted dollar index, daily, index Jan 2006=100. Reuses
+// FRED_API_KEY \u2014 no new secret needed. Pillar 1 fit: Strange's
+// structural power over money/finance; also the same dollar-clearing
+// infrastructure Farrell & Newman's "weaponized interdependence" concerns.
+async function fetchDollarIndex() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=DTWEXBGS&api_key=${key}&file_type=json&sort_order=desc&limit=2`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? []).filter((o) => o.value !== ".");
+  if (obs.length < 1) throw new Error("FRED: no usable DTWEXBGS observations");
+  const latest = parseFloat(obs[0].value);
+  const prev = obs.length > 1 ? parseFloat(obs[1].value) : latest;
+  return {
+    id: "dollar-index",
+    name: "Nominal Broad U.S. Dollar Index (FRED: DTWEXBGS)",
+    value: latest.toFixed(2),
+    change: fmtSigned(latest - prev, 2, ""),
+    series: "terracotta",
+    cadence: "daily",
+    asOf: obs[0].date,
+  };
+}
+
+
 async function fetchBls() {
   const key = process.env.BLS_API_KEY; // optional
   const seriesid = ["LNS14000006", "LNS14000003"]; // Black, White (seas. adj.)
@@ -142,7 +181,11 @@ async function fetchBls() {
     name: "Black\u2013White Unemployment Rate Gap (BLS, monthly)",
     value: fmtPP(latestGap),
     change: fmtSigned(latestGap - prevGap),
-    series: "ristra",
+    // sage, not ristra: ristra is reserved for links + Pillar-3 going
+    // forward, and every other Pillar-2 (distributional justice) indicator
+    // now uses sage \u2014 see Visual Encoding Registry in the data dictionary.
+    series: "sage",
+    cadence: "monthly",
     asOf: `${black[0].year}-${black[0].period.replace("M", "")}`,
   };
 }
@@ -219,6 +262,7 @@ async function fetchWealthShare() {
     value: `${latestPct.toFixed(1)}%`,
     change: fmtSigned(latestPct - prevPct, 1, "pp"),
     series: "sage",
+    cadence: "annual",
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
@@ -237,13 +281,58 @@ async function fetchIncomeShareUS() {
     name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)",
     value: `${latestPct.toFixed(1)}%`,
     change: fmtSigned(latestPct - prevPct, 1, "pp"),
-    series: "turquoise",
+    // sage, not turquoise: consolidating every Pillar-2 indicator onto one
+    // token frees turquoise for Pillar 3 once OFAC ships \u2014 see the
+    // Visual Encoding Registry in the data dictionary.
+    series: "sage",
+    cadence: "annual",
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
 }
 
-// ---- US Census: Gini coefficient of income inequality (ACS 1-year) ----
+// ---- EIA: Strategic Petroleum Reserve, weekly crude oil ending stocks ----
+// Pillar 4 fit: an SPR level is a held strategic energy buffer/leverage,
+// i.e. energy security as state power (Mitchell, Carbon Democracy) — not
+// a bare commodity price, which DECISIONS.md's Pillar 4 test excludes.
+// Series PET.WCSSTUS1.W is published in thousand barrels; converted to
+// million barrels below to match how SPR levels are conventionally
+// reported. NOTE: this fetcher was written without being able to make a
+// live test call (sandboxed, no network egress here) — the `/seriesid/`
+// shortcut and its JSON shape (response.data[].period / .value) are
+// per EIA's documented APIv2 emulation of legacy v1 series IDs, but
+// verify the very first real run's output shape before trusting it
+// unattended; adjust the `rows[i].value` / `.period` accessors below if
+// the actual response nests differently.
+async function fetchSPR() {
+  const key = process.env.EIA_API_KEY;
+  if (!key) throw new Error("EIA_API_KEY not set");
+  const url = `https://api.eia.gov/v2/seriesid/PET.WCSSTUS1.W?api_key=${key}&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=2`;
+  const data = await safeFetchJson(url);
+  const rows = data?.response?.data ?? [];
+  if (rows.length < 1) throw new Error("EIA: no usable SPR observations");
+  const latestRaw = parseFloat(rows[0].value);
+  const prevRaw = rows.length > 1 ? parseFloat(rows[1].value) : latestRaw;
+  const latest = latestRaw / 1000; // thousand bbl -> million bbl
+  const prev = prevRaw / 1000;
+  return {
+    id: "spr-level",
+    name: "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)",
+    value: `${latest.toFixed(1)} MMbbl`,
+    change: fmtSigned(latest - prev, 1, " MMbbl"),
+    series: "ochre",
+    cadence: "weekly",
+    asOf: String(rows[0].period),
+  };
+}
+
+
+// NOT in the `fetchers` pipeline below as of the core-set review: this
+// hardcodes change: "n/a" (single-point read, no prior-year diff ever
+// fetched), so it carries no data-driven indication of movement and was
+// dropped from the core ticker on that basis. Left defined, not deleted,
+// in case a future pass adds the second-year fetch + diff this would need
+// to earn a spot back.
 async function fetchGini() {
   const key = process.env.CENSUS_API_KEY; // optional
   const now = new Date().getFullYear();
@@ -273,6 +362,9 @@ async function fetchGini() {
 }
 
 // ---- US Census: White-Black median household income gap (ACS 1-year) ----
+// NOT in the `fetchers` pipeline below \u2014 same reasoning as fetchGini()
+// above: change is hardcoded "n/a", no diff is computed, dropped from the
+// core ticker on that basis, function kept for a possible future upgrade.
 async function fetchIncomeGap() {
   const key = process.env.CENSUS_API_KEY; // optional
   const now = new Date().getFullYear();
@@ -306,7 +398,7 @@ async function fetchIncomeGap() {
 
 async function main() {
   const existing = await loadExisting();
-  const fetchers = [fetchFred, fetchLaborShare, fetchBls, fetchIncomeGap, fetchWealthShare, fetchIncomeShareUS, fetchGini];
+  const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchSPR];
   const results = [];
   for (const fn of fetchers) {
     try {
@@ -317,11 +409,11 @@ async function main() {
       const idGuess = {
         fetchFred: "treasury-spread",
         fetchLaborShare: "labor-share",
+        fetchDollarIndex: "dollar-index",
         fetchBls: "unemployment-gap",
-        fetchIncomeGap: "income-gap-us",
         fetchWealthShare: "wealth-share-top1",
         fetchIncomeShareUS: "income-share-top1-us",
-        fetchGini: "gini-us",
+        fetchSPR: "spr-level",
       }[fn.name];
       if (existing[idGuess]) results.push(existing[idGuess]);
     }
