@@ -116,8 +116,21 @@ async function fetchLaborShare() {
     change: fmtSigned(latest - prev, 1, "pp"),
     series: "terracotta",
     cadence: "annual",
+    // Value-polarity exception (added 2026-09-11, by request): rising labor
+    // share is read as good in this project's own distributive-justice
+    // framing (Piketty/Milanovic), so its delta overrides the neutral
+    // Pillar-1 terracotta with turquoise(up)/ochre(down) \u2014 see the CSS
+    // comment above .ticker__delta for the tradeoff this creates.
+    polarity: "good-up",
     asOf: obs[0].date,
-    note: "Annual release \u2014 value is static between updates.",
+    // Verified 2026-09-11 directly against
+    // https://fred.stlouisfed.org/series/LABSHPUSA156NRUG: latest real
+    // observation is 2023 (56.83%), and FRED lists this series' "Next
+    // Release Date" as Not Available. Penn World Table 11.0 may not get
+    // a scheduled future update at all \u2014 a bigger staleness risk than
+    // ordinary annual cadence. If this fetch keeps returning 2023 well
+    // into the future, that's the source being stuck, not a fetch bug.
+    note: "Annual release \u2014 value is static between updates. Source has no scheduled next release as of 2026-09-11.",
   };
 }
 
@@ -263,6 +276,14 @@ async function fetchWealthShare() {
     change: fmtSigned(latestPct - prevPct, 1, "pp"),
     series: "sage",
     cadence: "annual",
+    // Value-polarity exception (added 2026-09-11, by request): rising top-1%
+    // concentration is read as bad, so its delta overrides the neutral
+    // Pillar-2 sage with ochre(up)/turquoise(down) instead \u2014 universal
+    // good=turquoise/bad=ochre scheme, added same day, replacing an
+    // earlier sage/ristra version. Note ochre is also spr-level's plain
+    // Pillar-4 identity color \u2014 known, accepted collision, see the CSS
+    // comment above .ticker__delta.
+    polarity: "bad-up",
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
@@ -286,6 +307,10 @@ async function fetchIncomeShareUS() {
     // Visual Encoding Registry in the data dictionary.
     series: "sage",
     cadence: "annual",
+    // Value-polarity exception (added 2026-09-11, by request): same
+    // reasoning as wealth-share-top1 \u2014 rising top-1% concentration
+    // reads as bad, so the delta overrides sage with ochre(up)/turquoise(down).
+    polarity: "bad-up",
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
