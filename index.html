@@ -404,6 +404,23 @@
     display: block;
   }
 
+  /* ================= PEACE AND CONFLICT MODULE (Pillar 3) ================= */
+  /* The dashboard's first non-time-series panel chart: a cross-sectional
+     grouped bar chart (forcibly displaced persons by UNHCR region of
+     origin, latest year), not a trend over time \u2014 see DECISIONS.md,
+     "Peace and Conflict module visualizations." Colored ristra throughout,
+     the color already reserved for Pillar 3 (see the fetchBls comment in
+     fetch-ticker-data.mjs); every bar uses the same token since this is
+     one series (displaced persons) broken out by category (region), not
+     several distinct series the way the Energy module's fuel-type chart
+     is. */
+
+  .peace-chart svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
   /* ================= FOOTER ================= */
 
   .footer {
@@ -529,7 +546,13 @@
       </div>
       <div class="panel-placeholder">
         <h2 class="panel-placeholder__title" aria-label="Peace and Conflict">3</h2>
-        <p class="panel-placeholder__note">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+        <div class="peace-module" id="peaceModule" aria-label="Forcibly displaced persons by region of origin, latest year">
+          <h3 class="energy-view__label">Forcibly displaced persons by region of origin (UNHCR)</h3>
+          <div class="peace-chart" id="peaceChart"></div>
+          <p class="energy-view__disclaimer" id="peaceDisclaimer">
+            Illustrative placeholder values (not live-fetched yet) — pending the scheduled pipeline's first run of <code>peace-data.json</code>.
+          </p>
+        </div>
       </div>
       <div class="panel-placeholder">
         <h2 class="panel-placeholder__title" aria-label="Energy">4</h2>
@@ -558,9 +581,10 @@
 
     <p class="footer__status">
       Data as of <span id="dataAsOf"></span> &middot;
-      Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series, WTI 20-day realized volatility, US home price YoY growth), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly) &middot;
+      Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series, WTI 20-day realized volatility, US home price YoY growth), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly), UNHCR (forcibly displaced persons, annual) &middot;
       Tracked but not in the core ticker: Census Bureau White\u2013Black income gap (a single-point annual read with no computed year-over-year change; a second, separate Census-ACS Gini fetch is also defined but unused now that the FRED-sourced Gini time series above covers the Distributional Justice panel) &middot;
       Structural Power panel (Pillar 1): student loans owned &amp; securitized (Federal Reserve G.19, via FRED, monthly) &middot;
+      Peace and Conflict panel (Pillar 3): forcibly displaced persons by region of origin, latest year (UNHCR Refugee Data Finder API) &middot;
       Still placeholder pending Tier 2 wiring: ECB SDW, EU ETS/Ember, US Treasury OFAC &middot;
       Dropped for lack of a low-lift API: Cornell/Illinois Labor Action Tracker, ACLED &middot;
       Planned discourse-analysis inputs: public speech transcripts, official party platform publications, and public posts from politicians' verified official accounts &mdash; not private citizens' social media &middot;
@@ -578,7 +602,9 @@
     // Live in this pass: FRED (T10Y2Y, labor share, Nominal Broad Dollar
     // Index, WTI 20-day realized volatility, US home-price YoY growth),
     // BLS (unemployment gap), OWID/WID (global top 1% wealth share, US
-    // top 1% income share), and EIA (Strategic Petroleum Reserve). The
+    // top 1% income share), EIA (Strategic Petroleum Reserve), and UNHCR
+    // (forcibly displaced persons, global total \u2014 fully keyless, no new
+    // secret; see DECISIONS.md). The
     // energy-price-volatility indicator is deliberately the *swing* in
     // WTI crude, not its level — a bare price would fail the Pillar 4
     // relevance test the same way a bare SPR commodity price would; see
@@ -626,7 +652,7 @@
       { name: "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)", value: "+3.8%", change: "-0.4pp", series: "sage", cadence: "monthly" },
       { name: "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)", value: "285.4 MMbbl", change: "-1.2 MMbbl", series: "ochre", cadence: "weekly" },
       { name: "Energy Price Volatility \u2014 WTI 20-Day Realized Vol (FRED: DCOILWTICO)", value: "34.2%", change: "+2.6pp", series: "ochre", cadence: "daily" },
-      { name: "Lorem ipsum dolor sit amet", value: "Lorem", change: "+1.0", series: "terracotta", cadence: "daily" },
+      { name: "Forcibly Displaced Persons \u2014 Global Total (UNHCR)", value: "122.6M", change: "+7.2M", series: "ristra", cadence: "annual" },
       { name: "Consectetur adipiscing elit", value: "Ipsum", change: "-1.0", series: "sage", cadence: "monthly" },
       { name: "Sed do eiusmod tempor incididunt", value: "Dolor", change: "n/a", series: "ochre", cadence: "annual" },
     ];
@@ -1055,6 +1081,74 @@
         : `Illustrative placeholder values (real historical FRED figures through mid-2026, not live-fetched yet) &middot; pending the scheduled pipeline's first run of <code>student-loan-data.json</code> (FRED: <code>SLOASM</code>).`;
     }
     loadStudentLoanData();
+
+    // ============ PEACE AND CONFLICT MODULE (Pillar 3) ============
+    // Forcibly displaced persons by UNHCR region of origin, latest year
+    // only \u2014 the dashboard's first non-time-series panel chart. See
+    // DECISIONS.md, "Peace and Conflict module visualizations." Live data
+    // comes from ./peace-data.json, written by fetchDisplacementByRegion()
+    // in fetch-ticker-data.mjs via the same scheduled GitHub Action.
+    // Illustrative placeholder values below are hand-set, order-of-
+    // magnitude plausible figures (not scraped from a real UNHCR pull),
+    // labeled as such in the disclaimer \u2014 same "labeled synthetic data"
+    // convention used elsewhere on this dashboard pending live wiring.
+    const PEACE_PLACEHOLDER = [
+      { region: "Sub-Saharan Africa", millions: 34.1 },
+      { region: "Middle East and North Africa", millions: 31.8 },
+      { region: "Asia and the Pacific", millions: 18.4 },
+      { region: "Americas", millions: 17.2 },
+      { region: "Europe", millions: 12.9 },
+      { region: "Other/unknown", millions: 3.6 },
+    ];
+
+    function renderPeaceChart(data) {
+      const w = 480, h = 240, padL = 150, padR = 44, padT = 10, padB = 10;
+      const rowH = (h - padT - padB) / data.length;
+      const barH = rowH * 0.55;
+      const plotW = w - padL - padR;
+      const max = Math.max(...data.map((d) => d.millions));
+      const xScale = (v) => (plotW * v) / (max * 1.08);
+
+      const rows = data.map((d, i) => {
+        const y = padT + i * rowH + (rowH - barH) / 2;
+        const barW = Math.max(xScale(d.millions), 1);
+        return `
+          <text x="${padL - 10}" y="${y + barH / 2 + 3}" text-anchor="end" font-size="10" fill="var(--text)" opacity="0.8" font-family="var(--font-label)">${d.region}</text>
+          <rect x="${padL}" y="${y}" width="${barW}" height="${barH}" rx="1.5" fill="var(--ristra)" opacity="0.85" />
+          <text x="${padL + barW + 6}" y="${y + barH / 2 + 3}" font-size="10" fill="var(--text)" opacity="0.9" font-family="var(--font-data)">${d.millions.toFixed(1)}M</text>
+        `;
+      }).join("");
+
+      document.getElementById("peaceChart").innerHTML = `
+        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Horizontal bar chart of forcibly displaced persons by region of origin: ${data.map((d) => `${d.region} ${d.millions.toFixed(1)} million`).join(", ")}">
+          ${rows}
+        </svg>`;
+    }
+
+    async function loadPeaceData() {
+      let series = PEACE_PLACEHOLDER;
+      let asOf = null;
+      try {
+        const res = await fetch("./peace-data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.series?.length) {
+          series = data.series.map((d) => ({ region: d.region, millions: d.millions }));
+          asOf = data.asOf ?? null;
+        }
+      } catch (err) {
+        console.warn("peace-data.json unavailable, using illustrative placeholder values:", err);
+      }
+
+      renderPeaceChart(series);
+
+      const disclaimer = document.getElementById("peaceDisclaimer");
+      if (!disclaimer) return;
+      disclaimer.innerHTML = asOf
+        ? `As of ${asOf} &middot; live via scheduled pipeline (UNHCR Refugee Data Finder API).`
+        : `Illustrative placeholder values (order-of-magnitude only, not pulled from a live source) &middot; pending the scheduled pipeline's first run of <code>peace-data.json</code> (UNHCR Refugee Data Finder API).`;
+    }
+    loadPeaceData();
 
     function syncDataAsOf() {
       const el = document.getElementById("dataAsOf");
