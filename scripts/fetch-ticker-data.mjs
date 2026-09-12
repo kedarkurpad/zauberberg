@@ -749,20 +749,31 @@ async function fetchEnergyVolatility() {
 // Deliberately NO `polarity` field for now \u2014 see the DECISIONS.md entry
 // for why this is flagged as a candidate rather than decided here.
 //
-// CAVEAT (same pattern as fetchSPR/fetchGenerationMix/fetchGiniSeries):
-// written without a live test call (no network egress in this sandbox)
-// \u2014 the /population/ endpoint's exact JSON field names (assumed here to
-// mirror the documented /demographics/ shape: one row per year with
-// refugees/asylum_seekers/idps/oip columns) are inferred from the API's
-// published docs, not confirmed against a real response. Verify the
-// first real Action run's row shape before trusting this unattended.
+// UPDATE (2026-09-11): the first real Action run confirmed the field
+// names were fine all along (refugees/asylum_seekers/idps/oip, r.year) \u2014
+// the actual bug was coo_all=false&coa_all=false not aggregating
+// server-side as docs implied, combined with UNHCR's default 100-row page
+// cap silently truncating the result. See the fix comment inside the
+// function body and DECISIONS.md for the full root-cause writeup.
 async function fetchDisplacement() {
-  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${new Date().getFullYear() - 2}&yearTo=${new Date().getFullYear()}&coo_all=false&coa_all=false&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  // ROOT CAUSE (found 2026-09-11, via the [diag] logs below on the first
+  // real run): coo_all=false&coa_all=false did NOT aggregate server-side
+  // into one global row as the docs implied \u2014 it returned ordinary
+  // per-country-pair rows, capped at the API's default page size (100),
+  // so summing them undercounted badly (9.2M vs. a real ~120M+ global
+  // total), correctly caught by the plausibility guard below. Fixed by
+  // switching to the same coo_all=true&coa_all=false shape already proven
+  // to return per-origin-country rows in fetchDisplacementByRegion(), and
+  // requesting a larger page (limit=1000) so summation covers (closer to)
+  // every country rather than the first 100 \u2014 see DECISIONS.md.
+  const thisYear = new Date().getFullYear();
+  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
   const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
   const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
-  // DIAGNOSTIC (added 2026-09-11, same reason as fetchDisplacementByRegion's
-  // \u2014 the first real run of that sibling fetcher revealed a shape
-  // mismatch, so this one is unverified too until a real log confirms it):
+  // DIAGNOSTIC: left in place (not just for the original shape question,
+  // now confirmed, but to verify on the next run whether limit=1000
+  // actually raises UNHCR's page cap past 100 \u2014 if row count is still
+  // ~100, the cap is server-enforced and real pagination is needed next.
   console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
   console.log("[diag] /population (global) row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
@@ -823,12 +834,11 @@ async function fetchDisplacement() {
 // above but broken down by country of origin (coo_all=true) instead of
 // aggregated to one row.
 //
-// CAVEAT (same pattern as fetchDisplacement): written without a live test
-// call (no network egress in this sandbox) \u2014 the assumed field name for
-// a country's UNHCR region on the /countries/ response (`unhcr_region_name`)
-// is inferred from the API's documented region-filtering params, not
-// confirmed against a real payload. Verify the first real Action run's
-// response shape before trusting this unattended.
+// UPDATE (2026-09-11): the first real Action run confirmed `c.region`
+// (e.g. "Southern Asia") is the correct field on /countries/ \u2014 no
+// field-name fix was needed there. The actual bug was UNHCR's default
+// 100-row page cap truncating /population/ before regional bucketing;
+// see the fix comment inside the function body and DECISIONS.md.
 async function fetchDisplacementByRegion() {
   const countriesUrl = `https://api.unhcr.org/population/v1/countries/?limit=300`;
   const countriesData = await safeFetchJson(countriesUrl, { headers: { "User-Agent": BROWSER_UA } });
@@ -848,14 +858,20 @@ async function fetchDisplacementByRegion() {
     if (code) regionByCode[code] = region;
   }
 
+  // ROOT CAUSE (found 2026-09-11, via the [diag] logs on the first real
+  // run): the region/coo field names were fine \u2014 the one-region result
+  // was UNHCR's default page size (100 rows) truncating the by-country
+  // breakdown before it ever reached the regional bucketing. Fixed with
+  // limit=1000 on both the primary and fallback-year requests \u2014 see
+  // DECISIONS.md.
   const thisYear = new Date().getFullYear();
-  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
   let data = await safeFetchJson(popUrl, { headers: { "User-Agent": BROWSER_UA } });
   let rows = data?.items ?? data?.data ?? [];
   // Fall back one year if the current year has no published rows yet
   // (annual release, so the latest full year is often the prior one).
   if (!rows.length) {
-    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
     data = await safeFetchJson(fallbackUrl, { headers: { "User-Agent": BROWSER_UA } });
     rows = data?.items ?? data?.data ?? [];
   }
