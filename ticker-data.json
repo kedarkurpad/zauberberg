@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T03:01:36.508Z",
+  "generatedAt": "2026-09-12T03:19:17.600Z",
   "indicators": [
     {
       "id": "treasury-spread",
@@ -89,6 +89,16 @@
       "cadence": "daily",
       "asOf": "2026-09-09",
       "note": "Annualized realized volatility of WTI crude over the trailing 20 trading days — the swing, not the price level, is the Pillar 4 signal (supply-shock/geopolitical exposure)."
+    },
+    {
+      "id": "forcibly-displaced",
+      "name": "Forcibly Displaced Persons — Global Total (UNHCR)",
+      "value": "9.2M",
+      "change": "+0.0M",
+      "series": "ristra",
+      "cadence": "annual",
+      "asOf": "2024",
+      "note": "Refugees + asylum-seekers + IDPs + other people in need of international protection, per UNHCR's own ‘forcibly displaced’ definition. Annual release — value is static between updates."
     }
   ]
 }
