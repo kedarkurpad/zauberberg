@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T02:16:04.979Z",
+  "generatedAt": "2026-09-12T02:36:04.652Z",
   "generationMix": {
     "asOf": "2025",
     "series": [
@@ -38,43 +38,6 @@
         "fossil": 60.3,
         "nuclear": 18.5,
         "renewables": 21.2
-      }
-    ]
-  },
-  "crudeImports": {
-    "asOf": "2026-06",
-    "countries": [
-      {
-        "name": "NA",
-        "value": 41.3
-      },
-      {
-        "name": "CAN",
-        "value": 32.6
-      },
-      {
-        "name": "NA",
-        "value": 6.6
-      },
-      {
-        "name": "VEN",
-        "value": 5
-      },
-      {
-        "name": "MEX",
-        "value": 1.9
-      },
-      {
-        "name": "GUY",
-        "value": 1.7
-      },
-      {
-        "name": "COL",
-        "value": 1.5
-      },
-      {
-        "name": "Other",
-        "value": 9.4
       }
     ]
   }

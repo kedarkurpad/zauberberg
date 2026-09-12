@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T02:16:04.977Z",
+  "generatedAt": "2026-09-12T02:36:04.651Z",
   "indicators": [
     {
       "id": "treasury-spread",
@@ -62,6 +62,16 @@
       "note": "Annual release — value is static between WID.world's yearly updates."
     },
     {
+      "id": "housing-price-index",
+      "name": "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)",
+      "value": "+1.5%",
+      "change": "+0.3pp",
+      "series": "sage",
+      "cadence": "monthly",
+      "asOf": "2026-06-01",
+      "note": "Value is year-over-year home-price appreciation; change is the month-over-month shift in that YoY rate (i.e. whether asset-wealth gains are accelerating or decelerating), not a simple index-point diff."
+    },
+    {
       "id": "spr-level",
       "name": "Strategic Petroleum Reserve — Crude Oil Stocks (EIA, weekly)",
       "value": "285.4 MMbbl",
@@ -69,6 +79,16 @@
       "series": "ochre",
       "cadence": "weekly",
       "asOf": "2026-09-04"
+    },
+    {
+      "id": "energy-price-volatility",
+      "name": "Energy Price Volatility — WTI 20-Day Realized Vol (FRED: DCOILWTICO)",
+      "value": "32.9%",
+      "change": "+1.3pp",
+      "series": "ochre",
+      "cadence": "daily",
+      "asOf": "2026-09-09",
+      "note": "Annualized realized volatility of WTI crude over the trailing 20 trading days — the swing, not the price level, is the Pillar 4 signal (supply-shock/geopolitical exposure)."
     }
   ]
 }
