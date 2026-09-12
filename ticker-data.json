@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-09-11T00:00:00.000Z",
+  "generatedAt": "2026-09-12T01:27:11.534Z",
   "indicators": [
     {
       "id": "treasury-spread",
-      "name": "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)",
-      "value": "-0.18pp",
-      "change": "+0.04pp",
+      "name": "10Y–2Y Treasury Yield Spread (FRED: T10Y2Y)",
+      "value": "0.3pp",
+      "change": "-0.1pp",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "placeholder"
+      "asOf": "2026-09-11"
     },
     {
       "id": "labor-share",
@@ -18,57 +18,57 @@
       "series": "terracotta",
       "cadence": "annual",
       "polarity": "good-up",
-      "asOf": "2023",
-      "note": "Verified 2026-09-11 against https://fred.stlouisfed.org/series/LABSHPUSA156NRUG \u2014 latest real observation is 2023 (56.83% vs 57.62% in 2022). FRED lists this series' Next Release Date as Not Available; Penn World Table 11.0 may not have a scheduled future update. Not a fetch bug if this stays at 2023 for a long time."
+      "asOf": "2023-01-01",
+      "note": "Annual release — value is static between updates. Source has no scheduled next release as of 2026-09-11."
     },
     {
       "id": "dollar-index",
       "name": "Nominal Broad U.S. Dollar Index (FRED: DTWEXBGS)",
-      "value": "120.66",
-      "change": "+0.34",
+      "value": "118.07",
+      "change": "-0.05",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "placeholder"
+      "asOf": "2026-09-04"
     },
     {
       "id": "unemployment-gap",
-      "name": "Black\u2013White Unemployment Rate Gap (BLS, monthly)",
-      "value": "3.1pp",
-      "change": "-0.2pp",
+      "name": "Black–White Unemployment Rate Gap (BLS, monthly)",
+      "value": "2.3pp",
+      "change": "-0.4pp",
       "series": "sage",
       "cadence": "monthly",
-      "asOf": "placeholder"
+      "asOf": "2026-08"
     },
     {
       "id": "wealth-share-top1",
       "name": "Global Top 1% Wealth Share (WID.world, via OWID)",
-      "value": "19.8%",
-      "change": "+0.3pp",
+      "value": "36.4%",
+      "change": "+0.0pp",
       "series": "sage",
       "cadence": "annual",
       "polarity": "bad-up",
-      "asOf": "placeholder",
-      "note": "Annual release \u2014 value is static between WID.world's yearly updates. This value/change pair is still an illustrative placeholder, not verified against a live fetch (unlike labor-share) \u2014 confirmed 2026-09-11 that the underlying OWID dataset runs through 2024, last updated June 2026, next expected update June 2027."
+      "asOf": "2024",
+      "note": "Annual release — value is static between WID.world's yearly updates."
     },
     {
       "id": "income-share-top1-us",
       "name": "US Top 1% Income Share, Before Tax (WID.world, via OWID)",
-      "value": "20.5%",
-      "change": "+0.2pp",
+      "value": "20.7%",
+      "change": "+0.0pp",
       "series": "sage",
       "cadence": "annual",
       "polarity": "bad-up",
-      "asOf": "placeholder",
-      "note": "Annual release \u2014 value is static between WID.world's yearly updates. This value/change pair is still an illustrative placeholder, not verified against a live fetch \u2014 the underlying WID income-share series has not been individually checked for its latest year the way wealth-share-top1 was."
+      "asOf": "2024",
+      "note": "Annual release — value is static between WID.world's yearly updates."
     },
     {
       "id": "spr-level",
-      "name": "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)",
+      "name": "Strategic Petroleum Reserve — Crude Oil Stocks (EIA, weekly)",
       "value": "285.4 MMbbl",
       "change": "-1.2 MMbbl",
       "series": "ochre",
       "cadence": "weekly",
-      "asOf": "placeholder"
+      "asOf": "2026-09-04"
     }
   ]
 }
