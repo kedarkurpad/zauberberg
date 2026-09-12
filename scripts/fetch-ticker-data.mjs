@@ -728,6 +728,45 @@ async function fetchEnergyVolatility() {
 }
 
 
+// ---- Shared UNHCR pagination helper ----
+// CONFIRMED 2026-09-11 (via [diag] row-count logs): requesting limit=1000
+// does raise UNHCR's per-request cap \u2014 both fetchers went from ~100 rows
+// to exactly 1000. But "exactly 1000" is itself the signal that more data
+// exists past that page (a true last page returns fewer than the limit),
+// which is why fetchDisplacement's global total is still implausibly low
+// (15.0M) even after that fix. This helper pages through results with
+// UNHCR's `page` param, accumulating rows until a page returns fewer than
+// `limit` rows (the standard "last page" signal) or MAX_PAGES is hit as a
+// safety ceiling.
+//
+// CAVEAT: `page` is inferred from common REST convention, not confirmed
+// against UNHCR's docs (no network egress in this sandbox). If `page` is
+// actually ignored by the API, page 2 would come back identical to page
+// 1 \u2014 detected below and treated as "pagination isn't supported this
+// way," so we stop after one page rather than looping pointlessly or
+// double-counting the same rows. Diagnostic logging of pages fetched and
+// total row count is left in so the next real run confirms which case
+// we're in.
+async function fetchAllUnhcrRows(baseUrl, limit) {
+  const MAX_PAGES = 50; // safety ceiling: up to 50,000 rows across pages
+  const allRows = [];
+  let page = 1;
+  while (page <= MAX_PAGES) {
+    const data = await safeFetchJson(`${baseUrl}&page=${page}`, { headers: { "User-Agent": BROWSER_UA } });
+    const rows = data?.items ?? data?.data ?? [];
+    console.log(`[diag] page ${page}: ${rows.length} row(s)`);
+    if (page > 1 && rows.length && allRows.length && JSON.stringify(rows[0]) === JSON.stringify(allRows[0])) {
+      console.log(`[diag] page ${page} looks identical to page 1 \u2014 "page" param likely unsupported by this API; stopping after page 1`);
+      break;
+    }
+    allRows.push(...rows);
+    if (rows.length < limit) break; // fewer than a full page = last page
+    page++;
+  }
+  console.log(`[diag] fetched ${page} page(s), ${allRows.length} row(s) total from ${baseUrl.split("?")[0]}`);
+  return allRows;
+}
+
 // ---- UNHCR: Forcibly Displaced Persons, Global Total (Pillar 3) ----
 // Added 2026-09-11 by request. Sum of refugees, asylum-seekers, IDPs, and
 // other people in need of international protection (UNHCR's own "forcibly
@@ -756,26 +795,28 @@ async function fetchEnergyVolatility() {
 // cap silently truncating the result. See the fix comment inside the
 // function body and DECISIONS.md for the full root-cause writeup.
 async function fetchDisplacement() {
-  // ROOT CAUSE (found 2026-09-11, via the [diag] logs below on the first
-  // real run): coo_all=false&coa_all=false did NOT aggregate server-side
-  // into one global row as the docs implied \u2014 it returned ordinary
-  // per-country-pair rows, capped at the API's default page size (100),
-  // so summing them undercounted badly (9.2M vs. a real ~120M+ global
-  // total), correctly caught by the plausibility guard below. Fixed by
-  // switching to the same coo_all=true&coa_all=false shape already proven
-  // to return per-origin-country rows in fetchDisplacementByRegion(), and
-  // requesting a larger page (limit=1000) so summation covers (closer to)
-  // every country rather than the first 100 \u2014 see DECISIONS.md.
+  // ROOT CAUSE, part 1 (found 2026-09-11, via the [diag] logs on the
+  // first real run): coo_all=false&coa_all=false did NOT aggregate
+  // server-side into one global row as the docs implied \u2014 it returned
+  // ordinary per-country-pair rows, capped at the API's default page size
+  // (100), so summing them undercounted badly (9.2M vs. a real ~120M+
+  // global total). Fixed by switching to the same coo_all=true&coa_all=false
+  // shape already proven to return per-origin-country rows in
+  // fetchDisplacementByRegion().
+  //
+  // ROOT CAUSE, part 2 (found 2026-09-11, second real run): limit=1000
+  // alone wasn't enough either \u2014 it raised the per-request cap (confirmed:
+  // row count went from 100 to exactly 1000) but the real result set spans
+  // more than one page, so the total was still implausibly low (15.0M).
+  // Now pages through every result via fetchAllUnhcrRows() \u2014 see that
+  // function's own comment for the pagination-param caveat.
   const thisYear = new Date().getFullYear();
-  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-  const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
-  const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
-  // DIAGNOSTIC: left in place (not just for the original shape question,
-  // now confirmed, but to verify on the next run whether limit=1000
-  // actually raises UNHCR's page cap past 100 \u2014 if row count is still
-  // ~100, the cap is server-enforced and real pagination is needed next.
+  const LIMIT = 1000;
+  const baseUrl = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&coo_all=true&coa_all=false&limit=${LIMIT}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const allRows = await fetchAllUnhcrRows(baseUrl, LIMIT);
+  const rows = allRows.filter((r) => r.year);
   console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
-  console.log("[diag] /population (global) row count:", rows.length);
+  console.log("[diag] /population (global) total row count across all pages:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
 
   const byYear = {};
@@ -858,27 +899,32 @@ async function fetchDisplacementByRegion() {
     if (code) regionByCode[code] = region;
   }
 
-  // ROOT CAUSE (found 2026-09-11, via the [diag] logs on the first real
-  // run): the region/coo field names were fine \u2014 the one-region result
-  // was UNHCR's default page size (100 rows) truncating the by-country
-  // breakdown before it ever reached the regional bucketing. Fixed with
-  // limit=1000 on both the primary and fallback-year requests \u2014 see
-  // DECISIONS.md.
+  // ROOT CAUSE, part 1 (found 2026-09-11, first real run): the
+  // region/coo field names were fine \u2014 the one-region result was
+  // UNHCR's default page size (100 rows) truncating the by-country
+  // breakdown before it ever reached the regional bucketing.
+  //
+  // ROOT CAUSE, part 2 (found 2026-09-11, second real run): limit=1000
+  // raised the per-request cap but this fetcher's result set for a full
+  // year of per-origin-country data likely still spans more than one
+  // page (this fetcher's own totals were never checked against a
+  // plausibility band the way fetchDisplacement's are, so a similar
+  // undercount could have been silently passing the >=3-region check
+  // without tripping anything). Now pages through every result via
+  // fetchAllUnhcrRows() \u2014 see that function's comment for the
+  // pagination-param caveat.
   const thisYear = new Date().getFullYear();
-  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-  let data = await safeFetchJson(popUrl, { headers: { "User-Agent": BROWSER_UA } });
-  let rows = data?.items ?? data?.data ?? [];
+  const LIMIT = 1000;
+  const popBaseUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&limit=${LIMIT}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  let rows = await fetchAllUnhcrRows(popBaseUrl, LIMIT);
   // Fall back one year if the current year has no published rows yet
   // (annual release, so the latest full year is often the prior one).
   if (!rows.length) {
-    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-    data = await safeFetchJson(fallbackUrl, { headers: { "User-Agent": BROWSER_UA } });
-    rows = data?.items ?? data?.data ?? [];
+    const fallbackBaseUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&limit=${LIMIT}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+    rows = await fetchAllUnhcrRows(fallbackBaseUrl, LIMIT);
   }
-  // DIAGNOSTIC (same reason as above): print the raw shape of the first
-  // /population row and the total row count actually returned.
   console.log("[diag] /population sample row:", JSON.stringify(rows[0] ?? null));
-  console.log("[diag] /population row count:", rows.length);
+  console.log("[diag] /population total row count across all pages:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable by-origin population rows returned");
 
   const byRegion = {};
@@ -914,6 +960,19 @@ async function fetchDisplacementByRegion() {
   if (series.length < 3) {
     throw new Error(
       `UNHCR: only ${series.length} region(s) had nonzero totals (expected several) \u2014 likely a field-name mismatch in fetchDisplacementByRegion(), see the [diag] log lines above for the real response shape`
+    );
+  }
+
+  // MAGNITUDE GUARD (added 2026-09-11, alongside the pagination fix): the
+  // region-count check above can't catch an undercount that still spans
+  // several regions \u2014 exactly the failure mode fetchDisplacement() hit
+  // with only its own [50M, 300M] plausibility band to catch it. Applying
+  // the same band here to the summed total across all regions, since this
+  // fetcher pulls from the same underlying, page-limited dataset.
+  const totalAcrossRegions = Object.values(byRegion).reduce((s, v) => s + v, 0) / 1_000_000;
+  if (totalAcrossRegions < 50 || totalAcrossRegions > 300) {
+    throw new Error(
+      `UNHCR: region breakdown's total (${totalAcrossRegions.toFixed(1)}M) is outside the plausible [50M, 300M] range \u2014 likely an incomplete page fetch, see the [diag] log lines above`
     );
   }
 
