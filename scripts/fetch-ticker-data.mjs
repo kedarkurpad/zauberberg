@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Fetches ticker indicators server-side (so API keys never touch the browser)
- * and writes /ticker-data.json for the static page to read.
+ * and writes /ticker-data.json for the static page to read. Also fetches the
+ * Energy module's two chart datasets (generation mix, crude oil imports by
+ * country of origin) and writes /energy-data.json alongside it.
  *
  * Run by .github/workflows/update-ticker-data.yml on a schedule.
  *
@@ -23,6 +25,12 @@
  *     Reserve). GDELT tone was dropped by request \u2014 see DECISIONS.md
  *     changelog. Tier 2 (ECB spread, OFAC additions, EU ETS/Ember) is
  *     intentionally deferred.
+ *   - Energy module (separate output, energy-data.json, not the ticker):
+ *     fetchGenerationMix() and fetchCrudeImports(), both EIA, reusing the
+ *     existing EIA_API_KEY (no new secret). Both were written without a
+ *     live test call (no network egress in this sandbox) \u2014 verify their
+ *     first real run's response shape before trusting them unattended; see
+ *     the CAVEAT comments on each function.
  *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
  *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
  *     a single-point annual read with no prior-year diff — so neither
@@ -37,6 +45,7 @@ import { writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const OUT_PATH = path.resolve(process.cwd(), "ticker-data.json");
+const ENERGY_OUT_PATH = path.resolve(process.cwd(), "energy-data.json");
 
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
@@ -49,6 +58,15 @@ async function loadExisting() {
     const byId = {};
     for (const ind of parsed.indicators ?? []) byId[ind.id] = ind;
     return byId;
+  } catch {
+    return {};
+  }
+}
+
+async function loadExistingEnergy() {
+  try {
+    const raw = await readFile(ENERGY_OUT_PATH, "utf8");
+    return JSON.parse(raw);
   } catch {
     return {};
   }
@@ -352,6 +370,146 @@ async function fetchSPR() {
 }
 
 
+// ---- EIA: U.S. electricity generation mix, bucketed fossil/nuclear/renewables ----
+// Powers the Energy module's generation-mix stacked area chart (see
+// index.html, DECISIONS.md "Energy module visualizations"). Pillar 4 fit:
+// framed as transition politics (Malm; Riofrancos; Mitchell), not a bare
+// supply/demand mix — same reasoning as the SPR ticker indicator.
+//
+// CAVEAT (same pattern as fetchSPR below): written without a live test call
+// (sandboxed, no network egress here). The fueltypeid codes below and the
+// "all sectors combined" sectorid ("99") are per EIA's documented APIv2
+// browser for electric-power-operational-data as of this writing, but were
+// NOT confirmed against a real response. Verify the first real Action run's
+// row shape (row.period / row.fueltypeid / row.generation) before trusting
+// this unattended — these facet values are the most likely thing to need
+// correcting, not the overall approach.
+async function fetchGenerationMix() {
+  const key = process.env.EIA_API_KEY;
+  if (!key) throw new Error("EIA_API_KEY not set");
+
+  const FUEL_BUCKETS = {
+    fossil: ["COW", "PEL", "NG"], // coal, petroleum liquids, natural gas
+    nuclear: ["NUC"],
+    renewables: ["WND", "SUN", "DPV", "WAT", "GEO", "WWW"], // wind, utility solar, small-scale solar, hydro, geothermal, wood/waste
+  };
+  const allCodes = Object.values(FUEL_BUCKETS).flat();
+  const codeToBucket = {};
+  for (const [bucket, codes] of Object.entries(FUEL_BUCKETS)) {
+    for (const code of codes) codeToBucket[code] = bucket;
+  }
+
+  const params = new URLSearchParams({
+    api_key: key,
+    frequency: "annual",
+    "data[0]": "generation",
+    "facets[location][]": "US",
+    "facets[sectorid][]": "99",
+    "sort[0][column]": "period",
+    "sort[0][direction]": "desc",
+    offset: "0",
+    length: String(allCodes.length * 8), // ~8 years' worth per fuel type, generously
+  });
+  for (const code of allCodes) params.append("facets[fueltypeid][]", code);
+
+  const url = `https://api.eia.gov/v2/electricity/electric-power-operational-data/data/?${params.toString()}`;
+  const data = await safeFetchJson(url);
+  const rows = data?.response?.data ?? [];
+  if (!rows.length) throw new Error("EIA: no generation-mix rows returned");
+
+  const byPeriod = {};
+  for (const row of rows) {
+    const bucket = codeToBucket[row.fueltypeid];
+    const val = parseFloat(row.generation);
+    if (!bucket || Number.isNaN(val)) continue;
+    byPeriod[row.period] ??= { fossil: 0, nuclear: 0, renewables: 0 };
+    byPeriod[row.period][bucket] += val;
+  }
+
+  const periods = Object.keys(byPeriod).sort((a, b) => b.localeCompare(a));
+  if (!periods.length) throw new Error("EIA: could not bucket any generation-mix rows");
+
+  // Drop the most recent period if it looks partial (well under the
+  // second-most-recent year's total) so a part-year doesn't render as a
+  // misleadingly low/high share.
+  const completePeriods = periods.filter((p, i) => {
+    if (i === 0 && periods.length > 1) {
+      const totalHere = Object.values(byPeriod[p]).reduce((s, v) => s + v, 0);
+      const totalPrev = Object.values(byPeriod[periods[1]]).reduce((s, v) => s + v, 0);
+      return totalHere >= totalPrev * 0.9;
+    }
+    return true;
+  });
+
+  const series = completePeriods
+    .slice(0, 6)
+    .sort((a, b) => a.localeCompare(b))
+    .map((period) => {
+      const { fossil, nuclear, renewables } = byPeriod[period];
+      const total = fossil + nuclear + renewables;
+      return {
+        year: Number(period),
+        fossil: Math.round((fossil / total) * 1000) / 10,
+        nuclear: Math.round((nuclear / total) * 1000) / 10,
+        renewables: Math.round((renewables / total) * 1000) / 10,
+      };
+    });
+
+  return { asOf: completePeriods[0], series };
+}
+
+// ---- EIA: crude oil imports by country of origin ----
+// Powers the Energy module's import treemap. Pillar 4/1 fit: import
+// concentration as structural dependency/leverage (Strange; Mitchell), not
+// a bare trade-volume figure.
+//
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix above): unverified
+// against a live call. product=EPC0 (crude oil, excludes refined products)
+// and the duoarea/origin-name column names are per EIA's documented APIv2
+// browser for petroleum/move/impcus, not confirmed live. The "NUS-Z00"
+// world-total row is excluded on the assumption that it's a rollup rather
+// than a country — verify that assumption on the first real run, since if
+// wrong it would silently deflate every country's share.
+async function fetchCrudeImports() {
+  const key = process.env.EIA_API_KEY;
+  if (!key) throw new Error("EIA_API_KEY not set");
+
+  const params = new URLSearchParams({
+    api_key: key,
+    frequency: "monthly",
+    "data[0]": "value",
+    "facets[product][]": "EPC0",
+    "sort[0][column]": "period",
+    "sort[0][direction]": "desc",
+    offset: "0",
+    length: "200",
+  });
+  const url = `https://api.eia.gov/v2/petroleum/move/impcus/data/?${params.toString()}`;
+  const data = await safeFetchJson(url);
+  const rows = data?.response?.data ?? [];
+  if (!rows.length) throw new Error("EIA: no crude-import rows returned");
+
+  const latestPeriod = rows.map((r) => r.period).sort((a, b) => b.localeCompare(a))[0];
+  const latestRows = rows.filter((r) => r.period === latestPeriod && r.duoarea !== "NUS-Z00");
+
+  const byCountry = latestRows
+    .map((r) => ({ name: r["area-name"] ?? r.originName ?? r.duoarea, value: parseFloat(r.value) }))
+    .filter((r) => r.name && !Number.isNaN(r.value) && r.value > 0)
+    .sort((a, b) => b.value - a.value);
+  if (!byCountry.length) throw new Error("EIA: no usable per-country crude-import rows for latest period");
+
+  const total = byCountry.reduce((s, c) => s + c.value, 0);
+  const top = byCountry.slice(0, 7);
+  const otherValue = total - top.reduce((s, c) => s + c.value, 0);
+  const toPct = (v) => Math.round((v / total) * 1000) / 10;
+
+  const countries = top.map((c) => ({ name: c.name, value: toPct(c.value) }));
+  if (otherValue > 0.05) countries.push({ name: "Other", value: toPct(otherValue) });
+
+  return { asOf: latestPeriod, countries };
+}
+
+
 // NOT in the `fetchers` pipeline below as of the core-set review: this
 // hardcodes change: "n/a" (single-point read, no prior-year diff ever
 // fetched), so it carries no data-driven indication of movement and was
@@ -450,6 +608,31 @@ async function main() {
   };
   await writeFile(OUT_PATH, JSON.stringify(output, null, 2) + "\n", "utf8");
   console.log(`Wrote ${OUT_PATH} with ${results.length} indicator(s).`);
+
+  // Energy module (generation mix + crude imports): separate output file
+  // from the ticker, since these are chart series/breakdowns rather than
+  // single indicator values — see DECISIONS.md, "Energy module
+  // visualizations". Same fall-back-to-last-published behavior as above,
+  // so one bad EIA response doesn't blank out a chart.
+  const existingEnergy = await loadExistingEnergy();
+  const energyOutput = { generatedAt: new Date().toISOString() };
+
+  try {
+    energyOutput.generationMix = await fetchGenerationMix();
+  } catch (err) {
+    console.error(`[warn] fetchGenerationMix failed: ${err.message}`);
+    if (existingEnergy.generationMix) energyOutput.generationMix = existingEnergy.generationMix;
+  }
+
+  try {
+    energyOutput.crudeImports = await fetchCrudeImports();
+  } catch (err) {
+    console.error(`[warn] fetchCrudeImports failed: ${err.message}`);
+    if (existingEnergy.crudeImports) energyOutput.crudeImports = existingEnergy.crudeImports;
+  }
+
+  await writeFile(ENERGY_OUT_PATH, JSON.stringify(energyOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${ENERGY_OUT_PATH}.`);
 }
 
 main().catch((err) => {
