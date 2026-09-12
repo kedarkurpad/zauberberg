@@ -25,6 +25,7 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: node scripts/fetch-ticker-data.mjs
 
       - name: Commit updated ticker-data.json
