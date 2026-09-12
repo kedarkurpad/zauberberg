@@ -241,15 +241,33 @@
     margin-left: 1px;
   }
 
-  /* direction glyph colored per the metric's own assigned series color —
-     not a red/green good/bad judgment, since "up" isn't uniformly
-     good or bad across these indicators (e.g. rising wealth-share
-     concentration vs. rising renewable investment share) */
+  /* Direction glyph colored per the metric's own assigned series color by
+     default — not a red/green good/bad judgment, since "up" isn't
+     uniformly good or bad across most of these indicators (e.g. the
+     Treasury spread or the dollar index).
+     EXCEPTION, added 2026-09-11 by request: labor-share, wealth-share-top1,
+     and income-share-top1-us carry an explicit `polarity` field and DO get
+     judgment-colored deltas — turquoise=good, ochre=bad, UNIVERSAL across
+     every polarity-tagged indicator regardless of its pillar, via the
+     [data-polarity] rules below, which take priority over the plain
+     [data-series] rules for those three items only.
+     KNOWN COLLISION (2026-09-11): ochre is also spr-level's plain Pillar-4
+     identity color. spr-level carries no polarity and stays neutral, but
+     its delta will render the identical ochre a "bad" judgment uses on the
+     other two indicators, for entirely unrelated reasons. Accepted
+     tradeoff per explicit request, not an oversight — turquoise has no
+     such collision today (unclaimed by any live indicator). See
+     DECISIONS.md. */
   .ticker__delta[data-series="terracotta"] { color: var(--terracotta); }
   .ticker__delta[data-series="turquoise"]  { color: var(--turquoise); }
   .ticker__delta[data-series="ochre"]      { color: var(--ochre); }
   .ticker__delta[data-series="ristra"]     { color: var(--ristra); }
   .ticker__delta[data-series="sage"]       { color: var(--sage); }
+  /* Higher specificity than the [data-series] rules above (two attribute
+     selectors, not one) so this wins regardless of stylesheet order \u2014
+     not relying on cascade position to stay correct. */
+  .ticker__delta[data-series][data-polarity="good"] { color: var(--turquoise); }
+  .ticker__delta[data-series][data-polarity="bad"]  { color: var(--ochre); }
 
   @media (prefers-reduced-motion: reduce) {
     .ticker__track.is-animating,
@@ -457,13 +475,27 @@
     // indication of how either has moved, which is the bar the remaining
     // indicators below all clear. Revisit if the fetch logic is upgraded
     // to diff against a prior year.
+    //
+    // labor-share's fallback value was corrected 2026-09-11: it previously
+    // showed a made-up 62.8%/+0.1pp placeholder. Verified against FRED
+    // directly (https://fred.stlouisfed.org/series/LABSHPUSA156NRUG): the
+    // latest real observation is 2023 at 56.83%, prior year (2022) 57.62%,
+    // so 56.8%/-0.8pp is the actual most-recent data-driven value, not a
+    // guess. FRED's own page lists this series' "Next Release Date" as
+    // Not Available \u2014 Penn World Table 11.0 may not have a scheduled
+    // future update at all, which is a materially bigger staleness risk
+    // than the "refreshes once a year" framing elsewhere in this file
+    // implies. The live fetch (fetchLaborShare in fetch-ticker-data.mjs)
+    // will pull whatever FRED's current latest point is; if that's still
+    // 2023 whenever this runs, that's this source being stuck, not a
+    // fetch bug \u2014 see DECISIONS.md.
     const FALLBACK_INDICATORS = [
       { name: "10Y\u20132Y Treasury Yield Spread (FRED: T10Y2Y)", value: "-0.18pp", change: "+0.04pp", series: "terracotta", cadence: "daily" },
-      { name: "Labor Share of GDP (Penn World Table via FRED, annual)", value: "62.8%", change: "+0.1pp", series: "terracotta", cadence: "annual" },
+      { name: "Labor Share of GDP (Penn World Table via FRED, annual)", value: "56.8%", change: "-0.8pp", series: "terracotta", cadence: "annual", polarity: "good-up" },
       { name: "Nominal Broad U.S. Dollar Index (FRED: DTWEXBGS)", value: "120.66", change: "+0.34", series: "terracotta", cadence: "daily" },
       { name: "Black\u2013White Unemployment Rate Gap (BLS, monthly)", value: "3.1pp", change: "-0.2pp", series: "sage", cadence: "monthly" },
-      { name: "Global Top 1% Wealth Share (WID.world, via OWID)", value: "19.8%", change: "+0.3pp", series: "sage", cadence: "annual" },
-      { name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)", value: "20.5%", change: "+0.2pp", series: "sage", cadence: "annual" },
+      { name: "Global Top 1% Wealth Share (WID.world, via OWID)", value: "19.8%", change: "+0.3pp", series: "sage", cadence: "annual", polarity: "bad-up" },
+      { name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)", value: "20.5%", change: "+0.2pp", series: "sage", cadence: "annual", polarity: "bad-up" },
       { name: "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)", value: "285.4 MMbbl", change: "-1.2 MMbbl", series: "ochre", cadence: "weekly" },
       { name: "Lorem ipsum dolor sit amet", value: "Lorem", change: "+1.0", series: "terracotta", cadence: "daily" },
       { name: "Consectetur adipiscing elit", value: "Ipsum", change: "-1.0", series: "sage", cadence: "monthly" },
@@ -487,11 +519,19 @@
         const periodTag = i.change.trim() !== "n/a" && CADENCE_TAG[i.cadence]
           ? `<span class="ticker__period">${CADENCE_TAG[i.cadence]}</span>`
           : "";
+        // Value-polarity exception (see CSS comment above .ticker__delta):
+        // only indicators carrying `polarity` get judgment-colored deltas.
+        // Everything else stays series-token-colored, unjudged.
+        let polarityAttr = "";
+        if (i.change.trim() !== "n/a" && i.polarity) {
+          const isGood = i.polarity === "good-up" ? isUp : !isUp;
+          polarityAttr = ` data-polarity="${isGood ? "good" : "bad"}"`;
+        }
         return `
           <div class="ticker__item" ${tab}${title}>
             <span class="ticker__name">${i.name}</span>
             <span class="ticker__value">${i.value}</span>
-            <span class="ticker__delta" data-series="${i.series}">${arrow} ${i.change}${periodTag}</span>
+            <span class="ticker__delta" data-series="${i.series}"${polarityAttr}>${arrow} ${i.change}${periodTag}</span>
           </div>`;
       }).join("");
     }
