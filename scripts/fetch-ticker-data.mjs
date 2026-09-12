@@ -2,10 +2,13 @@
 /**
  * Fetches ticker indicators server-side (so API keys never touch the browser)
  * and writes /ticker-data.json for the static page to read. Also fetches the
- * Energy module's two chart datasets (generation mix, crude oil imports by
- * country of origin) and writes /energy-data.json alongside it, and the
- * Distributional Justice module's US Gini time series, writing
- * /gini-data.json alongside both.
+ * Energy module's generation-mix chart dataset and writes /energy-data.json
+ * alongside it, and the Distributional Justice module's US Gini time series,
+ * writing /gini-data.json alongside both.
+ *
+ * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
+ * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
+ * energy-data.json now carries only generationMix.
  *
  * Run by .github/workflows/update-ticker-data.yml on a schedule.
  *
@@ -22,17 +25,27 @@
  *
  * Design notes (see DECISIONS.md, Technical Requirements):
  *   - Wired up and in the core ticker: FRED (T10Y2Y, labor share, Nominal
- *     Broad Dollar Index), BLS (unemployment gap), OWID/WID (global top 1%
- *     wealth share, US top 1% income share), EIA (Strategic Petroleum
+ *     Broad Dollar Index, WTI 20-day realized volatility, US home-price
+ *     YoY growth), BLS (unemployment gap), OWID/WID (global top 1% wealth
+ *     share, US top 1% income share), EIA (Strategic Petroleum
  *     Reserve). GDELT tone was dropped by request \u2014 see DECISIONS.md
  *     changelog. Tier 2 (ECB spread, OFAC additions, EU ETS/Ember) is
  *     intentionally deferred.
  *   - Energy module (separate output, energy-data.json, not the ticker):
- *     fetchGenerationMix() and fetchCrudeImports(), both EIA, reusing the
- *     existing EIA_API_KEY (no new secret). Both were written without a
- *     live test call (no network egress in this sandbox) \u2014 verify their
- *     first real run's response shape before trusting them unattended; see
- *     the CAVEAT comments on each function.
+ *     fetchGenerationMix(), EIA, reusing the existing EIA_API_KEY (no new
+ *     secret). Written without a live test call (no network egress in this
+ *     sandbox) \u2014 verify the first real run's response shape before
+ *     trusting it unattended; see the CAVEAT comment on the function.
+ *     (fetchCrudeImports() and its treemap were removed 2026-09-11 by
+ *     request \u2014 see DECISIONS.md changelog.)
+ *   - Core ticker also gained fetchEnergyVolatility() (FRED DCOILWTICO,
+ *     WTI crude), a Pillar 4 leverage-framed indicator: 20-trading-day
+ *     realized volatility of the WTI spot price, not the price level
+ *     itself \u2014 volatility/swings are read as exposure to supply-chain
+ *     and geopolitical shocks (Klein; Riofrancos; Malm; Mitchell), the
+ *     same leverage logic already used for the SPR indicator, whereas a
+ *     bare price level would fail the Pillar 4 relevance test as plain
+ *     supply-and-demand economics. See DECISIONS.md.
  *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
  *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
  *     a single-point annual read with no prior-year diff — so neither
@@ -346,6 +359,64 @@ async function fetchIncomeShareUS() {
   };
 }
 
+// ---- FRED: US Home Price Index, YoY growth (asset-wealth inequality framing) ----
+// Pillar 2 fit, added 2026-09-11 by request: the ticker VALUE is the
+// year-over-year appreciation rate, not the raw index level (an index
+// level on a Jan-2000=100 base is meaningless without context, and a bare
+// price series would read as supply-and-demand economics anyway \u2014 the
+// same relevance problem DECISIONS.md already flagged and resolved for
+// energy-price-volatility). Framed per Piketty's capital-appreciation
+// logic applied to housing: home-price gains accrue to existing owners as
+// asset wealth while pricing out renters/non-owners, so faster
+// appreciation reads as a faster-widening asset-wealth gap \u2014 which is
+// why "change" here is the MONTH-OVER-MONTH SHIFT IN THE YOY RATE
+// (acceleration/deceleration of that gap), not a simple level diff.
+//
+// Deliberately NOT given a `polarity` field, unlike wealth-share-top1 /
+// income-share-top1-us: those measure concentration at the top directly,
+// so "up = bad" is unambiguous. A national home-price index instead
+// reflects a broad (~65%) homeowner population's asset gains, with mixed
+// effects (existing owners gain, renters/prospective buyers lose) that
+// don't reduce to a single normative direction the way top-1%-share does.
+// Per DECISIONS.md's own stated bar ("equally clear, stated normative
+// grounding"), that's not met here, so this stays series-token-colored
+// like the majority of this project's other indicators.
+//
+// CAVEAT (same pattern as fetchSPR/fetchEnergyVolatility): written
+// without a live test call (no network egress in this sandbox) \u2014 the
+// FRED observations JSON shape matches every other verified FRED fetcher
+// in this file, so that risk is low, but confirm CSUSHPISA is still the
+// right series id (S&P/Case-Shiller U.S. National Home Price Index,
+// seasonally adjusted, monthly) on the first real run \u2014 FRED has a
+// separate NSA variant (CSUSHPINSA) that would reintroduce seasonal
+// noise into the YoY figure if swapped in by mistake.
+async function fetchHousingPriceIndex() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=CSUSHPISA&api_key=${key}&file_type=json&sort_order=desc&limit=14`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? [])
+    .filter((o) => o.value !== ".")
+    .map((o) => ({ date: o.date, value: parseFloat(o.value) }));
+  if (obs.length < 14) throw new Error("FRED: not enough usable CSUSHPISA observations for two YoY points");
+
+  const yoy = (i) => (obs[i].value / obs[i + 12].value - 1) * 100;
+  const latestYoy = yoy(0);
+  const prevYoy = yoy(1);
+
+  return {
+    id: "housing-price-index",
+    name: "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)",
+    value: `${latestYoy >= 0 ? "+" : ""}${latestYoy.toFixed(1)}%`,
+    change: fmtSigned(latestYoy - prevYoy, 1, "pp"),
+    series: "sage",
+    cadence: "monthly",
+    asOf: obs[0].date,
+    note: "Value is year-over-year home-price appreciation; change is the month-over-month shift in that YoY rate (i.e. whether asset-wealth gains are accelerating or decelerating), not a simple index-point diff.",
+  };
+}
+
+
 // ---- EIA: Strategic Petroleum Reserve, weekly crude oil ending stocks ----
 // Pillar 4 fit: an SPR level is a held strategic energy buffer/leverage,
 // i.e. energy security as state power (Mitchell, Carbon Democracy) — not
@@ -511,55 +582,71 @@ async function fetchGenerationMix() {
   return { asOf: completePeriods[0], series };
 }
 
-// ---- EIA: crude oil imports by country of origin ----
-// Powers the Energy module's import treemap. Pillar 4/1 fit: import
-// concentration as structural dependency/leverage (Strange; Mitchell), not
-// a bare trade-volume figure.
+// ---- FRED: Energy price volatility (WTI crude, 20-trading-day realized vol) ----
+// Pillar 4 leverage framing, added 2026-09-11 by request: the SIGNAL here
+// is the *swing*, not the price level. A bare WTI spot price would fail
+// the Pillar 4 relevance test the same way DECISIONS.md already excludes
+// it for the SPR indicator ("not a bare commodity price"). Realized
+// volatility \u2014 how sharply the price is moving \u2014 is instead read as
+// exposure to supply-chain disruption and geopolitical leverage over
+// energy infrastructure (Klein; Riofrancos; Malm; Mitchell): a calm
+// market and a market being whipsawed by an embargo, a pipeline attack,
+// or an OPEC+ cut convey very different things about who holds leverage,
+// even when the price is not stated at all.
 //
-// CAVEAT (same pattern as fetchSPR/fetchGenerationMix above): unverified
-// against a live call. product=EPC0 (crude oil, excludes refined products)
-// and the duoarea/origin-name column names are per EIA's documented APIv2
-// browser for petroleum/move/impcus, not confirmed live. The "NUS-Z00"
-// world-total row is excluded on the assumption that it's a rollup rather
-// than a country — verify that assumption on the first real run, since if
-// wrong it would silently deflate every country's share.
-async function fetchCrudeImports() {
-  const key = process.env.EIA_API_KEY;
-  if (!key) throw new Error("EIA_API_KEY not set");
-
-  const params = new URLSearchParams({
-    api_key: key,
-    frequency: "monthly",
-    "data[0]": "value",
-    "facets[product][]": "EPC0",
-    "sort[0][column]": "period",
-    "sort[0][direction]": "desc",
-    offset: "0",
-    length: "200",
-  });
-  const url = `https://api.eia.gov/v2/petroleum/move/impcus/data/?${params.toString()}`;
+// Method: pull the most recent ~45 daily WTI closes (DCOILWTICO, which is
+// NOT every calendar day \u2014 it skips weekends/holidays, so we over-fetch
+// and then take the first 21 usable closes to get 20 daily returns), take
+// day-over-day log returns, and report the annualized stdev (stdev * sqrt(252))
+// as a percent. "change" compares that to the same calculation run one day
+// earlier (i.e. the trailing 20-return window shifted back by one
+// observation), so the ticker still shows a meaningful day-over-day delta
+// for a rolling-window statistic rather than a fabricated one.
+//
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix): written without a
+// live test call (no network egress in this sandbox) \u2014 the FRED
+// observations JSON shape matches every other FRED fetcher already
+// verified in this file, so that risk is low, but the volatility math
+// itself (window size, log-return convention, annualization factor) has
+// not been sanity-checked against a real print. Verify the first real
+// Action run's value against an independent WTI-vol source before
+// trusting it unattended.
+async function fetchEnergyVolatility() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=DCOILWTICO&api_key=${key}&file_type=json&sort_order=desc&limit=45`;
   const data = await safeFetchJson(url);
-  const rows = data?.response?.data ?? [];
-  if (!rows.length) throw new Error("EIA: no crude-import rows returned");
+  const obs = (data.observations ?? [])
+    .filter((o) => o.value !== ".")
+    .map((o) => ({ date: o.date, value: parseFloat(o.value) }))
+    .sort((a, b) => b.date.localeCompare(a.date)); // newest first
 
-  const latestPeriod = rows.map((r) => r.period).sort((a, b) => b.localeCompare(a))[0];
-  const latestRows = rows.filter((r) => r.period === latestPeriod && r.duoarea !== "NUS-Z00");
+  if (obs.length < 22) throw new Error("FRED: not enough usable DCOILWTICO observations for a 20-return window");
 
-  const byCountry = latestRows
-    .map((r) => ({ name: r["area-name"] ?? r.originName ?? r.duoarea, value: parseFloat(r.value) }))
-    .filter((r) => r.name && !Number.isNaN(r.value) && r.value > 0)
-    .sort((a, b) => b.value - a.value);
-  if (!byCountry.length) throw new Error("EIA: no usable per-country crude-import rows for latest period");
+  const logReturn = (newer, older) => Math.log(newer.value / older.value);
 
-  const total = byCountry.reduce((s, c) => s + c.value, 0);
-  const top = byCountry.slice(0, 7);
-  const otherValue = total - top.reduce((s, c) => s + c.value, 0);
-  const toPct = (v) => Math.round((v / total) * 1000) / 10;
+  const stdevAnnualized = (window) => {
+    // window: newest-first array of closes; produces window.length - 1 returns
+    const returns = [];
+    for (let i = 0; i < window.length - 1; i++) returns.push(logReturn(window[i], window[i + 1]));
+    const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
+    return Math.sqrt(variance) * Math.sqrt(252) * 100; // annualized, as a percent
+  };
 
-  const countries = top.map((c) => ({ name: c.name, value: toPct(c.value) }));
-  if (otherValue > 0.05) countries.push({ name: "Other", value: toPct(otherValue) });
+  const latestVol = stdevAnnualized(obs.slice(0, 21));   // most recent 20 returns
+  const prevVol = stdevAnnualized(obs.slice(1, 22));     // window shifted back one observation
 
-  return { asOf: latestPeriod, countries };
+  return {
+    id: "energy-price-volatility",
+    name: "Energy Price Volatility \u2014 WTI 20-Day Realized Vol (FRED: DCOILWTICO)",
+    value: `${latestVol.toFixed(1)}%`,
+    change: fmtSigned(latestVol - prevVol, 1, "pp"),
+    series: "ochre",
+    cadence: "daily",
+    asOf: obs[0].date,
+    note: "Annualized realized volatility of WTI crude over the trailing 20 trading days \u2014 the swing, not the price level, is the Pillar 4 signal (supply-shock/geopolitical exposure).",
+  };
 }
 
 
@@ -634,7 +721,7 @@ async function fetchIncomeGap() {
 
 async function main() {
   const existing = await loadExisting();
-  const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchSPR];
+  const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchHousingPriceIndex, fetchSPR, fetchEnergyVolatility];
   const results = [];
   for (const fn of fetchers) {
     try {
@@ -649,7 +736,9 @@ async function main() {
         fetchBls: "unemployment-gap",
         fetchWealthShare: "wealth-share-top1",
         fetchIncomeShareUS: "income-share-top1-us",
+        fetchHousingPriceIndex: "housing-price-index",
         fetchSPR: "spr-level",
+        fetchEnergyVolatility: "energy-price-volatility",
       }[fn.name];
       if (existing[idGuess]) results.push(existing[idGuess]);
     }
@@ -662,11 +751,12 @@ async function main() {
   await writeFile(OUT_PATH, JSON.stringify(output, null, 2) + "\n", "utf8");
   console.log(`Wrote ${OUT_PATH} with ${results.length} indicator(s).`);
 
-  // Energy module (generation mix + crude imports): separate output file
-  // from the ticker, since these are chart series/breakdowns rather than
-  // single indicator values — see DECISIONS.md, "Energy module
-  // visualizations". Same fall-back-to-last-published behavior as above,
-  // so one bad EIA response doesn't blank out a chart.
+  // Energy module (generation mix): separate output file from the ticker,
+  // since it's a chart series rather than a single indicator value — see
+  // DECISIONS.md, "Energy module visualizations". Same
+  // fall-back-to-last-published behavior as above, so one bad EIA response
+  // doesn't blank out the chart. (crudeImports was removed 2026-09-11 by
+  // request \u2014 see DECISIONS.md changelog.)
   const existingEnergy = await loadExistingEnergy();
   const energyOutput = { generatedAt: new Date().toISOString() };
 
@@ -675,13 +765,6 @@ async function main() {
   } catch (err) {
     console.error(`[warn] fetchGenerationMix failed: ${err.message}`);
     if (existingEnergy.generationMix) energyOutput.generationMix = existingEnergy.generationMix;
-  }
-
-  try {
-    energyOutput.crudeImports = await fetchCrudeImports();
-  } catch (err) {
-    console.error(`[warn] fetchCrudeImports failed: ${err.message}`);
-    if (existingEnergy.crudeImports) energyOutput.crudeImports = existingEnergy.crudeImports;
   }
 
   await writeFile(ENERGY_OUT_PATH, JSON.stringify(energyOutput, null, 2) + "\n", "utf8");
