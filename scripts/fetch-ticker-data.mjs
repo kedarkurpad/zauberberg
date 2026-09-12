@@ -2,8 +2,10 @@
 /**
  * Fetches ticker indicators server-side (so API keys never touch the browser)
  * and writes /ticker-data.json for the static page to read. Also fetches the
- * Energy module's generation-mix chart dataset and writes /energy-data.json
- * alongside it.
+ * Energy module's two chart datasets (generation mix, crude oil imports by
+ * country of origin) and writes /energy-data.json alongside it, and the
+ * Distributional Justice module's US Gini time series, writing
+ * /gini-data.json alongside both.
  *
  * Run by .github/workflows/update-ticker-data.yml on a schedule.
  *
@@ -26,12 +28,11 @@
  *     changelog. Tier 2 (ECB spread, OFAC additions, EU ETS/Ember) is
  *     intentionally deferred.
  *   - Energy module (separate output, energy-data.json, not the ticker):
- *     fetchGenerationMix(), EIA, reusing the existing EIA_API_KEY (no new
- *     secret). Written without a live test call (no network egress in
- *     this sandbox) \u2014 verify the first real run's response shape before
- *     trusting it unattended; see the CAVEAT comment above the function.
- *     A second chart (crude oil imports by country of origin) was built
- *     and then dropped 2026-09-11 \u2014 see DECISIONS.md.
+ *     fetchGenerationMix() and fetchCrudeImports(), both EIA, reusing the
+ *     existing EIA_API_KEY (no new secret). Both were written without a
+ *     live test call (no network egress in this sandbox) \u2014 verify their
+ *     first real run's response shape before trusting them unattended; see
+ *     the CAVEAT comments on each function.
  *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
  *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
  *     a single-point annual read with no prior-year diff — so neither
@@ -47,6 +48,7 @@ import path from "node:path";
 
 const OUT_PATH = path.resolve(process.cwd(), "ticker-data.json");
 const ENERGY_OUT_PATH = path.resolve(process.cwd(), "energy-data.json");
+const GINI_OUT_PATH = path.resolve(process.cwd(), "gini-data.json");
 
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
@@ -67,6 +69,15 @@ async function loadExisting() {
 async function loadExistingEnergy() {
   try {
     const raw = await readFile(ENERGY_OUT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function loadExistingGini() {
+  try {
+    const raw = await readFile(GINI_OUT_PATH, "utf8");
     return JSON.parse(raw);
   } catch {
     return {};
@@ -371,6 +382,47 @@ async function fetchSPR() {
 }
 
 
+// ---- FRED: US Household Income Gini Ratio, full annual time series ----
+// Powers the Distributional Justice (Pillar 2) panel's line chart — see
+// index.html and DECISIONS.md, "Distributional Justice module
+// visualization." NOT the same thing as fetchGini() further below: that
+// function pulls a single-point annual read from Census ACS for a
+// prospective *ticker* value and is deliberately not wired into the
+// active fetchers pipeline (see its own comment for why). This fetcher
+// instead pulls the full history of GINIALLRH (Census-sourced, delivered
+// via FRED) to drive a genuine multi-year line, and reuses FRED_API_KEY —
+// no new secret, same reasoning as fetchDollarIndex/fetchLaborShare.
+// Chosen over FRED's SIPOVGINIUSA (World Bank series) because GINIALLRH
+// is fresher (through 2024, last updated 2025-09-09 per FRED's page as
+// checked 2026-09-11) and keeps this indicator's provenance consistent
+// with the Census-sourced framing used elsewhere on this dashboard.
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix): written without a
+// live test call in this sandbox (no network egress) — the FRED
+// observations JSON shape (observations[].date / .value) matches every
+// other FRED fetcher already verified in this file (fetchFred,
+// fetchLaborShare, fetchDollarIndex), so the shape risk here is low, but
+// verify the first real Action run regardless.
+async function fetchGiniSeries() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=GINIALLRH&api_key=${key}&file_type=json&sort_order=asc&observation_start=1990-01-01`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? []).filter((o) => o.value !== ".");
+  if (obs.length < 2) throw new Error("FRED: not enough usable GINIALLRH observations");
+  const series = obs.map((o) => ({
+    year: Number(o.date.slice(0, 4)),
+    value: parseFloat(o.value),
+  }));
+  const latest = series[series.length - 1];
+  const prev = series[series.length - 2];
+  return {
+    asOf: String(latest.year),
+    latestValue: latest.value,
+    change: fmtSigned(latest.value - prev.value, 3, ""),
+    series,
+  };
+}
+
 // ---- EIA: U.S. electricity generation mix, bucketed fossil/nuclear/renewables ----
 // Powers the Energy module's generation-mix stacked area chart (see
 // index.html, DECISIONS.md "Energy module visualizations"). Pillar 4 fit:
@@ -457,6 +509,57 @@ async function fetchGenerationMix() {
     });
 
   return { asOf: completePeriods[0], series };
+}
+
+// ---- EIA: crude oil imports by country of origin ----
+// Powers the Energy module's import treemap. Pillar 4/1 fit: import
+// concentration as structural dependency/leverage (Strange; Mitchell), not
+// a bare trade-volume figure.
+//
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix above): unverified
+// against a live call. product=EPC0 (crude oil, excludes refined products)
+// and the duoarea/origin-name column names are per EIA's documented APIv2
+// browser for petroleum/move/impcus, not confirmed live. The "NUS-Z00"
+// world-total row is excluded on the assumption that it's a rollup rather
+// than a country — verify that assumption on the first real run, since if
+// wrong it would silently deflate every country's share.
+async function fetchCrudeImports() {
+  const key = process.env.EIA_API_KEY;
+  if (!key) throw new Error("EIA_API_KEY not set");
+
+  const params = new URLSearchParams({
+    api_key: key,
+    frequency: "monthly",
+    "data[0]": "value",
+    "facets[product][]": "EPC0",
+    "sort[0][column]": "period",
+    "sort[0][direction]": "desc",
+    offset: "0",
+    length: "200",
+  });
+  const url = `https://api.eia.gov/v2/petroleum/move/impcus/data/?${params.toString()}`;
+  const data = await safeFetchJson(url);
+  const rows = data?.response?.data ?? [];
+  if (!rows.length) throw new Error("EIA: no crude-import rows returned");
+
+  const latestPeriod = rows.map((r) => r.period).sort((a, b) => b.localeCompare(a))[0];
+  const latestRows = rows.filter((r) => r.period === latestPeriod && r.duoarea !== "NUS-Z00");
+
+  const byCountry = latestRows
+    .map((r) => ({ name: r["area-name"] ?? r.originName ?? r.duoarea, value: parseFloat(r.value) }))
+    .filter((r) => r.name && !Number.isNaN(r.value) && r.value > 0)
+    .sort((a, b) => b.value - a.value);
+  if (!byCountry.length) throw new Error("EIA: no usable per-country crude-import rows for latest period");
+
+  const total = byCountry.reduce((s, c) => s + c.value, 0);
+  const top = byCountry.slice(0, 7);
+  const otherValue = total - top.reduce((s, c) => s + c.value, 0);
+  const toPct = (v) => Math.round((v / total) * 1000) / 10;
+
+  const countries = top.map((c) => ({ name: c.name, value: toPct(c.value) }));
+  if (otherValue > 0.05) countries.push({ name: "Other", value: toPct(otherValue) });
+
+  return { asOf: latestPeriod, countries };
 }
 
 
@@ -559,11 +662,11 @@ async function main() {
   await writeFile(OUT_PATH, JSON.stringify(output, null, 2) + "\n", "utf8");
   console.log(`Wrote ${OUT_PATH} with ${results.length} indicator(s).`);
 
-  // Energy module: separate output file from the ticker, since this is a
-  // chart series/breakdown rather than a single indicator value — see
-  // DECISIONS.md, "Energy module visualizations". Same
-  // fall-back-to-last-published behavior as above, so one bad EIA response
-  // doesn't blank out the chart.
+  // Energy module (generation mix + crude imports): separate output file
+  // from the ticker, since these are chart series/breakdowns rather than
+  // single indicator values — see DECISIONS.md, "Energy module
+  // visualizations". Same fall-back-to-last-published behavior as above,
+  // so one bad EIA response doesn't blank out a chart.
   const existingEnergy = await loadExistingEnergy();
   const energyOutput = { generatedAt: new Date().toISOString() };
 
@@ -574,8 +677,33 @@ async function main() {
     if (existingEnergy.generationMix) energyOutput.generationMix = existingEnergy.generationMix;
   }
 
+  try {
+    energyOutput.crudeImports = await fetchCrudeImports();
+  } catch (err) {
+    console.error(`[warn] fetchCrudeImports failed: ${err.message}`);
+    if (existingEnergy.crudeImports) energyOutput.crudeImports = existingEnergy.crudeImports;
+  }
+
   await writeFile(ENERGY_OUT_PATH, JSON.stringify(energyOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${ENERGY_OUT_PATH}.`);
+
+  // Distributional Justice (Pillar 2) panel: US Gini time series, own
+  // sibling output file for the same reason energy-data.json is separate
+  // from ticker-data.json — this is a chart series, not a single ticker
+  // value. Same fall-back-to-last-published behavior on fetch failure.
+  const existingGini = await loadExistingGini();
+  let giniOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const gini = await fetchGiniSeries();
+    giniOutput = { generatedAt: giniOutput.generatedAt, ...gini };
+  } catch (err) {
+    console.error(`[warn] fetchGiniSeries failed: ${err.message}`);
+    if (existingGini.series) {
+      giniOutput = { ...existingGini, generatedAt: giniOutput.generatedAt };
+    }
+  }
+  await writeFile(GINI_OUT_PATH, JSON.stringify(giniOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${GINI_OUT_PATH}.`);
 }
 
 main().catch((err) => {
