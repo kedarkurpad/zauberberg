@@ -546,7 +546,7 @@
               <div class="treemap" id="importTreemap"></div>
             </div>
           </div>
-          <p class="energy-view__disclaimer">
+          <p class="energy-view__disclaimer" id="energyDisclaimer">
             Illustrative placeholder values only — not pulled from a live source. Pending: an EIA fetch for generation mix (<code>electricity/electric-power-operational-data</code> or <code>total-energy</code>) and crude imports by origin (<code>petroleum/move/impcus/data</code>), wired through the same server-side pipeline as the ticker (see DECISIONS.md).
           </p>
         </div>
@@ -796,14 +796,14 @@
     }
 
     const CRUDE_IMPORTS_PLACEHOLDER = [
-      { name: "Canada", value: 51, series: "terracotta" },
-      { name: "Mexico", value: 11, series: "turquoise" },
-      { name: "Saudi Arabia", value: 7, series: "ochre" },
-      { name: "Iraq", value: 4, series: "ristra" },
-      { name: "Colombia", value: 4, series: "sage" },
-      { name: "Ecuador", value: 3, series: "terracotta" },
-      { name: "Nigeria", value: 2, series: "turquoise" },
-      { name: "Other", value: 18, series: "neutral" },
+      { name: "Canada", value: 51 },
+      { name: "Mexico", value: 11 },
+      { name: "Saudi Arabia", value: 7 },
+      { name: "Iraq", value: 4 },
+      { name: "Colombia", value: 4 },
+      { name: "Ecuador", value: 3 },
+      { name: "Nigeria", value: 2 },
+      { name: "Other", value: 18 },
     ];
 
     // Compact "slice-and-dice" treemap: recursively splits the item list at
@@ -836,10 +836,23 @@
       }
     }
 
+    // Colors are assigned by rank, not by country name, so this still makes
+    // sense once real EIA data (which may surface different countries than
+    // this placeholder set) replaces it. "Other" is always neutral,
+    // wherever it lands in the sort.
+    const TREEMAP_PALETTE = ["terracotta", "turquoise", "ochre", "ristra", "sage"];
+
     function renderImportTreemap(items) {
       const sorted = [...items].sort((a, b) => b.value - a.value);
+      let colorRank = 0;
+      const withColor = sorted.map((item) => {
+        if (item.name === "Other") return { ...item, series: "neutral" };
+        const series = TREEMAP_PALETTE[colorRank % TREEMAP_PALETTE.length];
+        colorRank += 1;
+        return { ...item, series };
+      });
       const rects = [];
-      layoutTreemap(sorted, 0, 0, 100, 100, true, rects);
+      layoutTreemap(withColor, 0, 0, 100, 100, true, rects);
       const el = document.getElementById("importTreemap");
       el.innerHTML = rects.map((r) => {
         const isNeutral = r.series === "neutral";
@@ -848,15 +861,58 @@
         const border = isNeutral ? "1px solid var(--border)" : "1px solid var(--bg)";
         const showLabel = r.w > 9 && r.h > 9;
         return `
-          <div class="treemap__cell" title="${r.name}: ${r.value}% of illustrative crude imports"
+          <div class="treemap__cell" title="${r.name}: ${r.value}% of crude imports"
                style="left:${r.x}%; top:${r.y}%; width:${r.w}%; height:${r.h}%; background:${bg}; border:${border}; color:${textColor};">
             ${showLabel ? `<span class="treemap__cell-name" style="color:${textColor}">${r.name}</span><span class="treemap__cell-value" style="color:${textColor}">${r.value}%</span>` : ""}
           </div>`;
       }).join("");
     }
 
-    renderEnergyMixChart(ENERGY_MIX_PLACEHOLDER, ENERGY_MIX_SERIES);
-    renderImportTreemap(CRUDE_IMPORTS_PLACEHOLDER);
+    // Fetches ./energy-data.json (written by the same GH Action that writes
+    // ticker-data.json — see fetch-ticker-data.mjs). Falls back to the
+    // illustrative placeholder arrays above on any failure, or if either
+    // field is missing/empty, exactly like loadTickerData() does for the
+    // ticker. The two datasets can independently be live or fallback (e.g.
+    // one EIA endpoint succeeds, the other doesn't), so the disclaimer
+    // reports each one's status separately rather than an all-or-nothing
+    // "live" flag.
+    async function loadEnergyData() {
+      let generationMix = ENERGY_MIX_PLACEHOLDER;
+      let crudeImports = CRUDE_IMPORTS_PLACEHOLDER;
+      let generationMixAsOf = null;
+      let crudeImportsAsOf = null;
+
+      try {
+        const res = await fetch("./energy-data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.generationMix?.series?.length) {
+          generationMix = data.generationMix.series;
+          generationMixAsOf = data.generationMix.asOf ?? null;
+        }
+        if (data.crudeImports?.countries?.length) {
+          crudeImports = data.crudeImports.countries;
+          crudeImportsAsOf = data.crudeImports.asOf ?? null;
+        }
+      } catch (err) {
+        console.warn("energy-data.json unavailable, using illustrative placeholder values:", err);
+      }
+
+      renderEnergyMixChart(generationMix, ENERGY_MIX_SERIES);
+      renderImportTreemap(crudeImports);
+
+      const disclaimer = document.getElementById("energyDisclaimer");
+      if (!disclaimer) return;
+      const parts = [];
+      parts.push(generationMixAsOf
+        ? `Generation mix as of ${generationMixAsOf} \u2014 live via scheduled pipeline (EIA).`
+        : `Generation mix: illustrative placeholder, not pulled from a live source (EIA electricity/electric-power-operational-data fetch pending or failed).`);
+      parts.push(crudeImportsAsOf
+        ? `Crude imports as of ${crudeImportsAsOf} \u2014 live via scheduled pipeline (EIA).`
+        : `Crude imports: illustrative placeholder, not pulled from a live source (EIA petroleum/move/impcus fetch pending or failed).`);
+      disclaimer.textContent = parts.join(" ");
+    }
+    loadEnergyData();
 
     function syncDataAsOf() {
       const el = document.getElementById("dataAsOf");
