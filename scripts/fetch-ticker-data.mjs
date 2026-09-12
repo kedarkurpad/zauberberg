@@ -3,8 +3,9 @@
  * Fetches ticker indicators server-side (so API keys never touch the browser)
  * and writes /ticker-data.json for the static page to read. Also fetches the
  * Energy module's generation-mix chart dataset and writes /energy-data.json
- * alongside it, and the Distributional Justice module's US Gini time series,
- * writing /gini-data.json alongside both.
+ * alongside it, the Distributional Justice module's US Gini time series,
+ * writing /gini-data.json, and the Structural Power module's Student Loans
+ * Owned and Securitized time series, writing /student-loan-data.json.
  *
  * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
  * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
@@ -62,6 +63,7 @@ import path from "node:path";
 const OUT_PATH = path.resolve(process.cwd(), "ticker-data.json");
 const ENERGY_OUT_PATH = path.resolve(process.cwd(), "energy-data.json");
 const GINI_OUT_PATH = path.resolve(process.cwd(), "gini-data.json");
+const STUDENT_LOAN_OUT_PATH = path.resolve(process.cwd(), "student-loan-data.json");
 
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
@@ -91,6 +93,15 @@ async function loadExistingEnergy() {
 async function loadExistingGini() {
   try {
     const raw = await readFile(GINI_OUT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function loadExistingStudentLoan() {
+  try {
+    const raw = await readFile(STUDENT_LOAN_OUT_PATH, "utf8");
     return JSON.parse(raw);
   } catch {
     return {};
@@ -494,6 +505,50 @@ async function fetchGiniSeries() {
   };
 }
 
+// ---- FRED: Student Loans Owned and Securitized (structural-power/leverage framing) ----
+// Powers the Structural Power & Political Economy (Pillar 1) panel's line
+// chart — see index.html and DECISIONS.md, "Structural Power module
+// visualizations." Pillar 1 fit (Strange; Harvey): the balance itself \u2014
+// debt that has been packaged and is HELD by financial institutions \u2014
+// is the leverage signal, the same way the SPR ticker indicator's bare
+// reserve level (not a derived rate) was accepted as the Pillar 4 leverage
+// signal. No YoY/ratio transformation needed here for the same reason.
+// Reuses FRED_API_KEY \u2014 no new secret.
+//
+// SLOASM (Board of Governors G.19, monthly, millions of USD, NSA) only
+// actually reports on a quarterly cadence within its monthly slots (Mar/
+// Jun/Sep/Dec populated, other months come back as "."), confirmed via a
+// live fetch of https://fred.stlouisfed.org/data/SLOASM on 2026-09-11 \u2014
+// this fetcher filters those empty months out rather than treating them
+// as a bug. Values converted from millions to trillions of USD for
+// display (matches the SPR indicator's unit-conversion convention).
+//
+// CAVEAT: unlike fetchSPR/fetchGenerationMix/fetchGiniSeries, this
+// specific FRED series_id + JSON shape (observations[].date/.value) WAS
+// confirmed live on 2026-09-11 (both the series page and the full data
+// table), so this fetcher carries less shape-risk than those \u2014 no
+// "verify against a live response" caveat needed here.
+async function fetchStudentLoanSeries() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=SLOASM&api_key=${key}&file_type=json&sort_order=asc&observation_start=2006-01-01`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? []).filter((o) => o.value !== ".");
+  if (obs.length < 2) throw new Error("FRED: not enough usable SLOASM observations");
+  const series = obs.map((o) => ({
+    date: o.date,
+    trillions: Math.round((parseFloat(o.value) / 1_000_000) * 1000) / 1000, // millions -> trillions, 3dp
+  }));
+  const latest = series[series.length - 1];
+  const prev = series[series.length - 2];
+  return {
+    asOf: latest.date,
+    latestValue: latest.trillions,
+    change: fmtSigned(latest.trillions - prev.trillions, 3, "T"),
+    series,
+  };
+}
+
 // ---- EIA: U.S. electricity generation mix, bucketed fossil/nuclear/renewables ----
 // Powers the Energy module's generation-mix stacked area chart (see
 // index.html, DECISIONS.md "Energy module visualizations"). Pillar 4 fit:
@@ -787,6 +842,25 @@ async function main() {
   }
   await writeFile(GINI_OUT_PATH, JSON.stringify(giniOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${GINI_OUT_PATH}.`);
+
+  // Structural Power & Political Economy (Pillar 1) panel: Student Loans
+  // Owned and Securitized time series — own sibling output file, same
+  // reason gini-data.json/energy-data.json are separate from
+  // ticker-data.json (a chart series, not a single ticker value). Same
+  // fall-back-to-last-published behavior on fetch failure.
+  const existingStudentLoan = await loadExistingStudentLoan();
+  let studentLoanOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const studentLoan = await fetchStudentLoanSeries();
+    studentLoanOutput = { generatedAt: studentLoanOutput.generatedAt, ...studentLoan };
+  } catch (err) {
+    console.error(`[warn] fetchStudentLoanSeries failed: ${err.message}`);
+    if (existingStudentLoan.series) {
+      studentLoanOutput = { ...existingStudentLoan, generatedAt: studentLoanOutput.generatedAt };
+    }
+  }
+  await writeFile(STUDENT_LOAN_OUT_PATH, JSON.stringify(studentLoanOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${STUDENT_LOAN_OUT_PATH}.`);
 }
 
 main().catch((err) => {
