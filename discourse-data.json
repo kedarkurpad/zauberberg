@@ -1,130 +1,14 @@
 {
-  "generatedAt": "2026-09-13T01:26:47.052Z",
+  "generatedAt": "2026-09-13T01:53:36.947Z",
   "asOf": "2026-09-10",
-  "packageId": "CREC-2026-09-10",
+  "daysChecked": 4,
+  "targetEntries": 4,
   "source": "GovInfo Congressional Record (CREC)",
-  "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
+  "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs). One threshold-clearing entry per day, trailing days, falling back to the nearest earlier qualifying day when a day has nothing that clears.",
   "entries": [
     {
-      "granuleId": "CREC-2026-09-10-pt1-PgH-FrontMatter-3",
-      "title": "House of Representatives",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 55,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-2",
-      "title": "The House met at 3:30 p.m. and was called to order by the Speaker pro tempore (Mr. Walberg).",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 46,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 21.7,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [
-          "order"
-        ],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-3",
-      "title": "DESIGNATION OF THE SPEAKER PRO TEMPORE",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 75,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
+      "date": "2026-09-10",
+      "packageId": "CREC-2026-09-10",
       "granuleId": "CREC-2026-09-10-pt1-PgH5523-4",
       "title": "PRAYER",
       "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
@@ -171,10 +55,55 @@
       }
     },
     {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-5",
-      "title": "THE JOURNAL",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 49,
+      "date": "1996-07-10",
+      "packageId": "CREC-1996-07-10",
+      "granuleId": "CREC-1996-07-10-pt1-PgH7159",
+      "title": "The House met at 9 a.m.",
+      "excerpt": "Congressional Record, Volume 142 Issue 101 (Wednesday, July 10, 1996) [Congressional Record Volume 142, Number 101 (Wednesday, July 10, 1996)] [House] [Page H7159] From the Congressional Record Online through the Governm…",
+      "wordCount": 141,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 0,
+        "purity": 14.2
+      },
+      "dominantFoundation": "purity",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [],
+        "loyalty": [],
+        "authority": [],
+        "purity": [
+          "sing"
+        ],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "date": "2026-09-08",
+      "packageId": "CREC-2026-09-08",
+      "granuleId": "CREC-2026-09-08-pt1-PgH5517-3",
+      "title": "PRAYER",
+      "excerpt": "Congressional Record, Volume 172 Issue 142 (Tuesday, September 8, 2026) [Congressional Record Volume 172, Number 142 (Tuesday, September 8, 2026)] [House] [Page H5517] From the Congressional Record Online through the Gov…",
+      "wordCount": 231,
       "moralFoundations": {
         "care": 0,
         "fairness": 0,
@@ -190,179 +119,68 @@
         "authority": [],
         "purity": [],
         "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
-      "title": "PLEDGE OF ALLEGIANCE",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 88,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 11.4,
-        "loyalty": 56.8,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "allegiance",
-          "nation"
-        ],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-7",
-      "title": "EXPRESSING THE SENSE OF THE HOUSE OF REPRESENTATIVES REGARDING THE TERRORIST ATTACKS LAUNCHED AGAINST THE UNITED STATES ON SEPTEMBER 11, 2001, ON THE 25TH ANNIVERSARY OF THAT DATE",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Pages H5523-H5524] From the Congressional Record Online thro…",
-      "wordCount": 1036,
-      "moralFoundations": {
-        "care": 7.7,
-        "fairness": 1,
-        "loyalty": 10.6,
-        "authority": 8.7,
-        "purity": 3.9
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [
-          "protect",
-          "victims",
-          "protected",
-          "safely"
-        ],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "nation",
-          "communities",
-          "together",
-          "national",
-          "nations"
-        ],
-        "authority": [
-          "law",
-          "leaders",
-          "respect"
-        ],
-        "purity": [
-          "since",
-          "degrade"
-        ],
-        "anger": [
-          "attacks",
-          "threaten",
-          "hateful",
-          "threat"
-        ],
         "fear": [
-          "risked"
+          "fears"
         ],
-        "joy": [],
-        "sadness": [
-          "mourn",
-          "tragic",
-          "loss"
+        "joy": [
+          "cheered",
+          "encouragement"
         ],
-        "positive": [
-          "success",
-          "successive",
-          "supported",
-          "support"
-        ],
+        "sadness": [],
+        "positive": [],
         "negative": [
-          "damaged",
-          "weaken",
-          "threaten",
-          "threat"
+          "bad"
         ]
       },
       "emotions": {
-        "anger": 15.4,
-        "fear": 1,
-        "joy": 0,
-        "sadness": 4.8
+        "anger": 0,
+        "fear": 4.3,
+        "joy": 8.7,
+        "sadness": 0
       },
-      "dominantEmotion": "anger",
+      "dominantEmotion": "joy",
       "tone": {
-        "positive": 3.9,
-        "negative": 3.9,
-        "score": 0
+        "positive": 0,
+        "negative": 4.3,
+        "score": -4.3
       }
     },
     {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5524",
-      "title": "BILL PRESENTED TO THE PRESIDENT",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5524] From the Congressional Record Online through the…",
-      "wordCount": 91,
+      "date": "2026-09-03",
+      "packageId": "CREC-2026-09-03",
+      "granuleId": "CREC-2026-09-03-pt1-PgH5481-2",
+      "title": "PRAYER",
+      "excerpt": "Congressional Record, Volume 172 Issue 140 (Thursday, September 3, 2026) [Congressional Record Volume 172, Number 140 (Thursday, September 3, 2026)] [House] [Page H5481] From the Congressional Record Online through the G…",
+      "wordCount": 208,
       "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 22,
-        "purity": 0
+        "care": 4.8,
+        "fairness": 9.6,
+        "loyalty": 9.6,
+        "authority": 4.8,
+        "purity": 4.8
       },
-      "dominantFoundation": "authority",
+      "dominantFoundation": "fairness",
       "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [
-          "duty",
-          "respect"
+        "care": [
+          "protector"
         ],
-        "purity": [],
+        "fairness": [
+          "justice"
+        ],
+        "loyalty": [
+          "nation"
+        ],
+        "authority": [
+          "leaders"
+        ],
+        "purity": [
+          "moral"
+        ],
         "anger": [],
         "fear": [],
         "joy": [],
         "sadness": [],
-        "positive": [
-          "growth",
-          "opportunity"
-        ],
+        "positive": [],
         "negative": []
       },
       "emotions": {
@@ -373,9 +191,9 @@
       },
       "dominantEmotion": null,
       "tone": {
-        "positive": 22,
+        "positive": 0,
         "negative": 0,
-        "score": 22
+        "score": 0
       }
     }
   ]
