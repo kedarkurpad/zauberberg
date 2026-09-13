@@ -276,16 +276,35 @@
     .ticker__group[aria-hidden="true"] { display: none; }
   }
 
+  /* Placeholder link row directly under the ticker — not sticky itself
+     (only the ticker bar above it pins), so it scrolls away normally.
+     Unwired for now, same convention as the topbar's disabled nav links
+     (Theory Notes / Methodology / About): aria-disabled + tabindex="-1"
+     so it isn't announced as an interactive control until it's real. */
+  .ticker__seeall {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ticker__seeall a {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.45;
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  .ticker__seeall a[aria-disabled="true"] {
+    pointer-events: none;
+  }
+
   /* ================= SKELETON BELOW TICKER ================= */
 
   .shell {
     padding: 20px 24px;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
   }
 
   .panel-placeholder {
@@ -296,11 +315,41 @@
     padding: 16px;
   }
 
-  .panel-placeholder__title {
-    font-size: 13px;
+  /* Section headers ("Inequality" / "Migration" / "Climate") sit OUTSIDE
+     the panel-placeholder box, not inside it as the old numeral heading
+     did — see DECISIONS.md, "Panel headers: numerals replaced with
+     thematic labels." Each module-section stacks header → panel →
+     "see all" link vertically; module-grid arranges the sections in a
+     responsive row, same breakpoint behavior the old .grid had. */
+  .module-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .module-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .module-section__title {
+    font-size: 14px;
     font-weight: 600;
     color: var(--text);
-    margin-bottom: 6px;
+    letter-spacing: 0.01em;
+  }
+
+  .module-section__seeall {
+    font-size: 11px;
+    color: var(--text);
+    opacity: 0.45;
+    align-self: flex-start;
+    cursor: default;
+  }
+
+  .module-section__seeall[aria-disabled="true"] {
+    pointer-events: none;
   }
 
   .panel-placeholder__note {
@@ -374,7 +423,12 @@
   }
 
   /* ================= STRUCTURAL POWER MODULE (Pillar 1) ================= */
-  /* Single-series line chart, same reasoning/chart type as the
+  /* CURRENTLY UNUSED: the Structural Power panel was removed from the DOM
+     (see DECISIONS.md, "Panel removed: Structural Power / student
+     loans") \u2014 this rule is dead CSS until that panel markup returns.
+     Left in place, not deleted, since renderStudentLoanChart() and its
+     FRED-backed pipeline are also still intact for the same reason.
+     Single-series line chart, same reasoning/chart type as the
      Distributional Justice module's Gini chart below \u2014 one continuous
      scalar (student debt held/securitized by financial institutions) over
      time, not a breakdown, so no categorical-palette exception is needed.
@@ -431,12 +485,29 @@
     color: var(--text);
     opacity: 0.5;
     line-height: 1.7;
-    max-width: 90ch;
+    /* No ch-based cap: on a laptop-width viewport this line should run
+       the full width of the shell rather than wrapping early — see
+       DECISIONS.md, "Footer disclaimer text: remove artificial wrap." */
+    max-width: 100%;
+  }
+
+  /* Catchy header, sits above the existing technical title (now acting
+     as its subtitle) — see DECISIONS.md, "Discourse-tagging module
+     rename." Kept as two separate elements rather than replacing the
+     technical title outright, so the lexicon-based-method transparency
+     DECISIONS.md already calls for stays visible. */
+  .footer__section-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 2px;
   }
 
   .footer__samples-title {
     font-size: 13px;
     font-weight: 600;
+    color: var(--text);
+    opacity: 0.7;
     margin-bottom: 4px;
   }
 
@@ -445,7 +516,8 @@
     color: var(--text);
     opacity: 0.5;
     margin-bottom: 14px;
-    max-width: 70ch;
+    /* No ch-based cap — same reasoning as .footer__status above. */
+    max-width: 100%;
   }
 
   .sample-grid {
@@ -459,6 +531,16 @@
     border: 1px solid var(--border);
     border-radius: 2px;
     padding: 12px;
+  }
+
+  .sample-card__date {
+    font-family: var(--font-data);
+    font-size: 10px;
+    color: var(--text);
+    opacity: 0.45;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .sample-card__text {
@@ -517,52 +599,55 @@
       <div class="ticker__track" id="tickerTrack"></div>
     </div>
   </div>
+  <div class="ticker__seeall">
+    <a role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">See all indicators →</a>
+  </div>
 
   <main class="shell">
-    <div class="grid">
-      <div class="panel-placeholder">
-        <h2 class="panel-placeholder__title" aria-label="Structural Power &amp; Political Economy">1</h2>
-        <div class="structural-power-module" id="structuralPowerModule" aria-label="Student loan debt owned and securitized by financial institutions, 2006–present">
-          <h3 class="energy-view__label">Student loans owned &amp; securitized (Federal Reserve G.19, via FRED)</h3>
-          <div class="structural-power-chart" id="studentLoanChart"></div>
-          <p class="energy-view__disclaimer" id="studentLoanDisclaimer">
-            Illustrative placeholder values (real historical FRED figures, not live-fetched yet) — pending the scheduled pipeline's first run of <code>student-loan-data.json</code>.
-          </p>
-        </div>
-      </div>
-      <div class="panel-placeholder">
-        <h2 class="panel-placeholder__title" aria-label="Distributional Justice">2</h2>
-        <div class="gini-module" id="giniModule" aria-label="US household income Gini ratio, 1990–present">
-          <h3 class="energy-view__label">US household income Gini ratio (Census, via FRED)</h3>
-          <div class="gini-chart" id="giniChart"></div>
-          <p class="energy-view__disclaimer" id="giniDisclaimer">
-            Illustrative placeholder values (real historical FRED figures, not live-fetched yet) — pending the scheduled pipeline's first run of <code>gini-data.json</code>.
-          </p>
-        </div>
-      </div>
-      <div class="panel-placeholder">
-        <h2 class="panel-placeholder__title" aria-label="Peace and Conflict">3</h2>
-        <p class="panel-placeholder__note">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
-      </div>
-      <div class="panel-placeholder">
-        <h2 class="panel-placeholder__title" aria-label="Energy">4</h2>
-        <div class="energy-module" id="energyModule" aria-label="Energy module: illustrative placeholder visualization">
-          <div class="energy-view">
-            <h3 class="energy-view__label">U.S. generation mix, fossil vs. nuclear vs. renewables</h3>
-            <div class="energy-chart" id="energyMixChart"></div>
-            <div class="energy-legend" id="energyMixLegend"></div>
+    <div class="module-grid">
+      <section class="module-section">
+        <h2 class="module-section__title">Inequality</h2>
+        <div class="panel-placeholder">
+          <div class="gini-module" id="giniModule" aria-label="US household income Gini ratio, 1990–present">
+            <h3 class="energy-view__label">US household income Gini ratio (Census, via FRED)</h3>
+            <div class="gini-chart" id="giniChart"></div>
+            <p class="energy-view__disclaimer" id="giniDisclaimer">
+              Illustrative placeholder values (real historical FRED figures, not live-fetched yet) — pending the scheduled pipeline's first run of <code>gini-data.json</code>.
+            </p>
           </div>
-          <p class="energy-view__disclaimer" id="energyDisclaimer">
-            Illustrative placeholder values only — not pulled from a live source. Pending: an EIA fetch for generation mix (<code>electricity/electric-power-operational-data</code> or <code>total-energy</code>), wired through the same server-side pipeline as the ticker (see DECISIONS.md).
-          </p>
         </div>
-      </div>
+        <a class="module-section__seeall" role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">See all →</a>
+      </section>
+      <section class="module-section">
+        <h2 class="module-section__title">Migration</h2>
+        <div class="panel-placeholder">
+          <p class="panel-placeholder__note">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+        </div>
+        <a class="module-section__seeall" role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">See all →</a>
+      </section>
+      <section class="module-section">
+        <h2 class="module-section__title">Climate</h2>
+        <div class="panel-placeholder">
+          <div class="energy-module" id="energyModule" aria-label="Energy module: illustrative placeholder visualization">
+            <div class="energy-view">
+              <h3 class="energy-view__label">U.S. generation mix, fossil vs. nuclear vs. renewables</h3>
+              <div class="energy-chart" id="energyMixChart"></div>
+              <div class="energy-legend" id="energyMixLegend"></div>
+            </div>
+            <p class="energy-view__disclaimer" id="energyDisclaimer">
+              Illustrative placeholder values only — not pulled from a live source. Pending: an EIA fetch for generation mix (<code>electricity/electric-power-operational-data</code> or <code>total-energy</code>), wired through the same server-side pipeline as the ticker (see DECISIONS.md).
+            </p>
+          </div>
+        </div>
+        <a class="module-section__seeall" role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">See all →</a>
+      </section>
     </div>
   </main>
 
   <footer class="footer">
     <div>
-      <h2 class="footer__samples-title">Discourse-tagging output format</h2>
+      <h2 class="footer__section-title">Vibe of the Congress</h2>
+      <p class="footer__samples-title">Discourse-tagging output format</p>
       <p class="footer__samples-note" id="discourseNote">
         The four examples below are synthetic — written for this template, not drawn from real posts, platforms, or users — and exist only to preview how the NLP toolkit's sentiment/discourse-cluster tags would attach to real analyzed text once that pipeline exists.
       </p>
@@ -574,10 +659,10 @@
       Data as of <span id="dataAsOf"></span> &middot;
       Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series, WTI 20-day realized volatility, US home price YoY growth), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly) &middot;
       Tracked but not in the core ticker: Census Bureau White\u2013Black income gap (a single-point annual read with no computed year-over-year change; a second, separate Census-ACS Gini fetch is also defined but unused now that the FRED-sourced Gini time series above covers the Distributional Justice panel) &middot;
-      Structural Power panel (Pillar 1): student loans owned &amp; securitized (Federal Reserve G.19, via FRED, monthly) &middot;
+      Structural Power / Pillar 1 data (student loans owned &amp; securitized, Federal Reserve G.19 via FRED, monthly): still generated by the pipeline, but its panel is not currently shown &mdash; removed from this layout for now, see DECISIONS.md &middot;
       Still placeholder pending Tier 2 wiring: ECB SDW, EU ETS/Ember, US Treasury OFAC &middot;
       Dropped for lack of a low-lift API: Cornell/Illinois Labor Action Tracker, ACLED &middot;
-      Discourse-tagging module (Pillar 1): official floor-speech transcripts (GovInfo Congressional Record), lexicon-scored &mdash; not private citizens' social media. Still planned: official party platform publications and posts from politicians' verified official accounts &middot;
+      Vibe of the Congress / discourse-tagging module (Pillar 1): official floor-speech transcripts (GovInfo Congressional Record), lexicon-scored &mdash; not private citizens' social media, one qualifying entry per day, four trailing days. Still planned: official party platform publications and posts from politicians' verified official accounts &middot;
       see Methodology (above) for per-indicator sourcing once documented.
     </p>
   </footer>
@@ -731,11 +816,18 @@
     // drawn from real posts, platforms, or users. Shaped like the real
     // "matched keywords" output (see entryToCard below), not a prose
     // excerpt, so the fallback preview matches what live data looks like.
+    // One entry per trailing day (most recent first) \u2014 matches the live
+    // pipeline's "one qualifying speech per day, four days trailing"
+    // shape (see DECISIONS.md, "Vibe of the Congress"). The old fourth
+    // "below threshold" filler example is gone: fetchDiscourseTags() now
+    // skips non-qualifying days entirely rather than surfacing them, so a
+    // fallback preview showing one would misrepresent what live data
+    // actually looks like.
     const DISCOURSE_FALLBACK = [
-      { text: "Matched terms \u2014 Loyalty: patriot, homeland \u00b7 Anger: threat, hostile", tone: "negative", toneScore: "\u22122.1", cluster: "Loyalty-salient", series: "terracotta" },
-      { text: "Matched terms \u2014 Care: protect, victims \u00b7 Joy: hope, pride", tone: "positive", toneScore: "+2.4", cluster: "Care-salient", series: "sage" },
-      { text: "Matched terms \u2014 Authority: law, order", tone: "neutral", toneScore: "+0.1", cluster: "Authority-salient", series: "ochre" },
-      { text: "No category cleared the minimum-match threshold for this excerpt.", tone: "negative", toneScore: "\u22121.6", cluster: "Mixed / below threshold", series: null },
+      { date: "Sep 11", text: "Matched terms \u2014 Loyalty: patriot, homeland \u00b7 Anger: threat, hostile", tone: "negative", toneScore: "\u22122.1", cluster: "Loyalty-salient", series: "terracotta" },
+      { date: "Sep 10", text: "Matched terms \u2014 Care: protect, victims \u00b7 Joy: hope, pride", tone: "positive", toneScore: "+2.4", cluster: "Care-salient", series: "sage" },
+      { date: "Sep 9", text: "Matched terms \u2014 Authority: law, order", tone: "neutral", toneScore: "+0.1", cluster: "Authority-salient", series: "ochre" },
+      { date: "Sep 5", text: "Matched terms \u2014 Fairness: equal, unfair", tone: "negative", toneScore: "\u22120.8", cluster: "Fairness-salient", series: "turquoise" },
     ];
 
     // Color-token exception (see DECISIONS.md, "Discourse-tagging
@@ -776,13 +868,18 @@
         ? `Matched terms \u2014 ${parts.join(" \u00b7 ")}`
         : "No category cleared the minimum-match threshold for this excerpt.";
 
-      return { text, tone, toneScore, cluster, series };
+      const date = entry.date
+        ? new Date(entry.date + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : null;
+
+      return { date, text, tone, toneScore, cluster, series };
     }
 
     function renderSamples(samples) {
       const grid = document.getElementById("sampleGrid");
       grid.innerHTML = samples.map(s => `
         <div class="sample-card">
+          ${s.date ? `<p class="sample-card__date">${s.date}</p>` : ""}
           <p class="sample-card__text">${s.text}</p>
           <div class="sample-card__tags">
             <span class="tag tag--sentiment" data-tone="${s.tone}">tone ${s.toneScore}</span>
@@ -804,11 +901,20 @@
     // Fetches ./discourse-data.json (written by fetchDiscourseTags() in
     // fetch-ticker-data.mjs via the same scheduled GitHub Action). Falls
     // back to DISCOURSE_FALLBACK on any failure or empty payload, same
-    // convention as loadEnergyData()/loadGiniData()/loadStudentLoanData().
-    // See DECISIONS.md, "Discourse-tagging module", for the lexicon-based
-    // (Moral Foundations Dictionary + NRC-style emotion lexicon) method
-    // this data was scored with, and why that method was chosen over an
-    // LLM call.
+    // convention as loadEnergyData()/loadGiniData().
+    //
+    // "Vibe of the Congress" trailing-days design (added by request): the
+    // backend now returns at most one qualifying (threshold-clearing)
+    // entry per calendar day, walking backward through days until it has
+    // 4 or exhausts its lookback window \u2014 days with nothing that clears
+    // are skipped rather than filled with a "below threshold" card, so
+    // the four cards shown here are never padded filler. The `.slice(0,4)`
+    // below is a defensive cap only; the real limiting happens server-side
+    // in fetchDiscourseTags(). See DECISIONS.md, "Discourse-tagging
+    // module" and "Vibe of the Congress", for the lexicon-based (Moral
+    // Foundations Dictionary + NRC-style emotion lexicon) method this
+    // data was scored with, and why that method was chosen over an LLM
+    // call.
     async function loadDiscourseData() {
       let cards = DISCOURSE_FALLBACK;
       let asOf = null;
@@ -818,7 +924,7 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.entries?.length) {
-          cards = data.entries.map(entryToCard);
+          cards = data.entries.slice(0, 4).map(entryToCard);
           asOf = data.asOf ?? null;
           source = data.source ?? null;
         }
@@ -1177,7 +1283,14 @@
         ? `As of ${asOf} &middot; live via scheduled pipeline (FRED: <code>SLOASM</code>, sourced from the Federal Reserve Board's G.19 release).`
         : `Illustrative placeholder values (real historical FRED figures through mid-2026, not live-fetched yet) &middot; pending the scheduled pipeline's first run of <code>student-loan-data.json</code> (FRED: <code>SLOASM</code>).`;
     }
-    loadStudentLoanData();
+    // NOT called for now: the Structural Power panel was removed from the
+    // DOM (see DECISIONS.md, "Panel removed: Structural Power / student
+    // loans"), so #studentLoanChart/#studentLoanDisclaimer no longer
+    // exist and calling this would throw on the null getElementById.
+    // Function and its FRED-backed pipeline are left intact — re-adding
+    // the panel markup and this call is all that's needed to bring it
+    // back.
+    // loadStudentLoanData();
 
     function syncDataAsOf() {
       const el = document.getElementById("dataAsOf");
