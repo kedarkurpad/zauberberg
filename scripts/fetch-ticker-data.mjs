@@ -791,24 +791,31 @@ async function fetchEnergyVolatility() {
 // cap silently truncating the result. See the fix comment inside the
 // function body and DECISIONS.md for the full root-cause writeup.
 async function fetchDisplacement() {
-  // ROOT CAUSE (found 2026-09-11, via the [diag] logs below on the first
-  // real run): coo_all=false&coa_all=false did NOT aggregate server-side
-  // into one global row as the docs implied \u2014 it returned ordinary
-  // per-country-pair rows, capped at the API's default page size (100),
-  // so summing them undercounted badly (9.2M vs. a real ~120M+ global
-  // total), correctly caught by the plausibility guard below. Fixed by
-  // switching to the same coo_all=true&coa_all=false shape already proven
-  // to return per-origin-country rows in fetchDisplacementByRegion(), and
-  // requesting a larger page (limit=1000) so summation covers (closer to)
-  // every country rather than the first 100 \u2014 see DECISIONS.md.
+  // ROOT CAUSE, REVISED (2026-09-12, after a live run returned a 15.0M
+  // global total against a real ~120M+): the 2026-09-11 "fix" below was
+  // itself based on a misreading of UNHCR's own docs. Per the API
+  // reference, coo/coa "if not specified, data for this dimension will be
+  // summed and aggregated to one row" \u2014 aggregation happens when the
+  // dimension is OMITTED, not when coo_all=true is set. coo_all=true does
+  // the opposite: it explicitly breaks out every origin country as its
+  // own row rather than aggregating them away. So the previous request
+  // (coo_all=true&coa_all=false) was fetching ordinary per-(origin,
+  // destination)-country-pair rows \u2014 there are far more than 1000 of
+  // those across a 3-year window \u2014 and summing only the first 1000 of
+  // them undercounted by roughly 8x. Fixed by dropping coo/coo_all/coa/
+  // coa_all entirely, so both dimensions aggregate server-side into a
+  // single row per year, which is what this ticker indicator actually
+  // wants. (fetchDisplacementByRegion() below legitimately needs the
+  // per-origin breakdown and keeps coo_all=true, but now correctly omits
+  // coa/coa_all so destinations aggregate away instead of also being
+  // broken out \u2014 see that function's own comment.)
   const thisYear = new Date().getFullYear();
-  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
   const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
   const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
-  // DIAGNOSTIC: left in place (not just for the original shape question,
-  // now confirmed, but to verify on the next run whether limit=1000
-  // actually raises UNHCR's page cap past 100 \u2014 if row count is still
-  // ~100, the cap is server-enforced and real pagination is needed next.
+  // DIAGNOSTIC: left in place to confirm the fix \u2014 with both dimensions
+  // omitted, this should show one row per year (row count \u2248 3 for a
+  // 3-year window), not the ~1000-row-capped shape from before.
   console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
   console.log("[diag] /population (global) row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
@@ -830,13 +837,12 @@ async function fetchDisplacement() {
   const latest = byYear[latestYear] / 1_000_000; // persons -> millions
   const prev = byYear[prevYear] / 1_000_000;
 
-  // PLAUSIBILITY GUARD (added 2026-09-11, same rationale as the region
-  // sanity check below): UNHCR's own published global figure has been in
-  // roughly the 100\u2013130M range for the past few years. A result far
-  // outside a generous [50M, 300M] band is a stronger signal of a parsing
-  // bug (wrong field names, double-counting, or an under-populated row
-  // set) than of reality \u2014 fail loudly so main() falls back rather than
-  // publish an implausible "live" number.
+  // PLAUSIBILITY GUARD (added 2026-09-11, kept as defense-in-depth even
+  // after the real fix above): UNHCR's own published global figure has
+  // been in roughly the 100\u2013130M range for the past few years. A result
+  // far outside a generous [50M, 300M] band is a stronger signal of a
+  // parsing bug than of reality \u2014 fail loudly so main() falls back
+  // rather than publish an implausible "live" number.
   if (latest < 50 || latest > 300) {
     throw new Error(
       `UNHCR: aggregated global total (${latest.toFixed(1)}M) is outside the plausible [50M, 300M] range \u2014 likely a field-name mismatch, see the [diag] log lines above`
@@ -865,15 +871,15 @@ async function fetchDisplacement() {
 // Region bucketing is built at fetch time from the API's own /countries/
 // endpoint (country -> UNHCR region), not a hardcoded country list, so
 // the grouping doesn't silently go stale if regional classifications
-// change. Reuses the same global-total year logic as fetchDisplacement()
-// above but broken down by country of origin (coo_all=true) instead of
-// aggregated to one row.
+// change. Uses coo_all=true to break out every origin country as its own
+// row, while omitting coa/coa_all entirely so each origin country's row
+// is already summed across every destination server-side \u2014 see the
+// REVISED ROOT CAUSE comment inside the function for why coa_all=false
+// (the previous approach) was wrong.
 //
 // UPDATE (2026-09-11): the first real Action run confirmed `c.region`
 // (e.g. "Southern Asia") is the correct field on /countries/ \u2014 no
-// field-name fix was needed there. The actual bug was UNHCR's default
-// 100-row page cap truncating /population/ before regional bucketing;
-// see the fix comment inside the function body and DECISIONS.md.
+// field-name fix was needed there.
 async function fetchDisplacementByRegion() {
   const countriesUrl = `https://api.unhcr.org/population/v1/countries/?limit=300`;
   const countriesData = await safeFetchJson(countriesUrl, { headers: { "User-Agent": BROWSER_UA } });
@@ -893,20 +899,31 @@ async function fetchDisplacementByRegion() {
     if (code) regionByCode[code] = region;
   }
 
-  // ROOT CAUSE (found 2026-09-11, via the [diag] logs on the first real
-  // run): the region/coo field names were fine \u2014 the one-region result
-  // was UNHCR's default page size (100 rows) truncating the by-country
-  // breakdown before it ever reached the regional bucketing. Fixed with
-  // limit=1000 on both the primary and fallback-year requests \u2014 see
-  // DECISIONS.md.
+  // REVISED ROOT CAUSE (2026-09-12, after fetchDisplacement()'s 15.0M
+  // undercount exposed the same bug here): UNHCR's docs say a dimension
+  // "if not specified... will be summed and aggregated to one row" \u2014
+  // aggregation happens on OMISSION, not on passing coa_all=false. The
+  // previous request (coo_all=true&coa_all=false) was actually returning
+  // one row per (origin, destination) PAIR, not one row per origin
+  // summed across destinations \u2014 this function's own client-side
+  // byRegion summation happened to mostly paper over that (it sums
+  // whatever rows come back, regardless of whether each row is a full
+  // country total or one of several partial pair-rows for that country),
+  // but it was still at risk of the exact same undercount if any single
+  // origin country had more destination-pairs than fit under limit=1000
+  // alongside every other country's pairs. Fixed by dropping coa/coa_all
+  // entirely: each row is now already a full per-origin-country total,
+  // summed across all destinations server-side, so client-side summation
+  // here is now just "handle multiple rows if the API ever splits one
+  // origin across pages" rather than load-bearing for correctness.
   const thisYear = new Date().getFullYear();
-  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
   let data = await safeFetchJson(popUrl, { headers: { "User-Agent": BROWSER_UA } });
   let rows = data?.items ?? data?.data ?? [];
   // Fall back one year if the current year has no published rows yet
   // (annual release, so the latest full year is often the prior one).
   if (!rows.length) {
-    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
     data = await safeFetchJson(fallbackUrl, { headers: { "User-Agent": BROWSER_UA } });
     rows = data?.items ?? data?.data ?? [];
   }
@@ -1040,29 +1057,38 @@ function scoreText(text) {
   const tokens = (text.toLowerCase().match(/[a-z']+/g) || []);
   const wordCount = tokens.length;
 
-  const countCategory = (compiledCategory) => {
-    let n = 0;
+  // Returns both the raw hit count and up to 5 distinct example words that
+  // actually matched \u2014 the matched-word list is what gets surfaced in the
+  // UI (see index.html), since showing the literal dictionary hits is more
+  // auditable/interpretable than a prose excerpt. See DECISIONS.md,
+  // "Discourse-tagging module" for why this replaced a raw text excerpt.
+  const scoreCategory = (compiledCategory) => {
+    const hits = [];
     for (const tok of tokens) {
-      if (compiledCategory.some((re) => re.test(tok))) n++;
+      if (compiledCategory.some((re) => re.test(tok))) hits.push(tok);
     }
-    return n;
+    return { raw: hits.length, matched: [...new Set(hits)].slice(0, 5) };
   };
 
   const rate = (raw) => (wordCount > 0 ? Math.round((raw / wordCount) * 1000 * 10) / 10 : 0);
 
   const mfdRaw = {};
   const mfdRate = {};
+  const mfdMatched = {};
   for (const [cat, res] of Object.entries(COMPILED_MFD)) {
-    const raw = countCategory(res);
+    const { raw, matched } = scoreCategory(res);
     mfdRaw[cat] = raw;
     mfdRate[cat] = rate(raw);
+    mfdMatched[cat] = matched;
   }
   const emoRaw = {};
   const emoRate = {};
+  const emoMatched = {};
   for (const [cat, res] of Object.entries(COMPILED_EMOTION)) {
-    const raw = countCategory(res);
+    const { raw, matched } = scoreCategory(res);
     emoRaw[cat] = raw;
     emoRate[cat] = rate(raw);
+    emoMatched[cat] = matched;
   }
 
   const dominant = (rawObj, rateObj, excludeKeys = []) => {
@@ -1083,6 +1109,7 @@ function scoreText(text) {
     wordCount,
     moralFoundations: mfdRate,
     dominantFoundation,
+    matchedKeywords: { ...mfdMatched, ...emoMatched },
     emotions: { anger: emoRate.anger, fear: emoRate.fear, joy: emoRate.joy, sadness: emoRate.sadness },
     dominantEmotion,
     tone: { positive: emoRate.positive, negative: emoRate.negative, score: toneScore },
