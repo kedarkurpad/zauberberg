@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T02:32:06.412Z",
+  "generatedAt": "2026-09-13T02:43:50.762Z",
   "asOf": "2026-09-10",
   "packageId": "CREC-2026-09-10",
   "source": "GovInfo Congressional Record (CREC)",
@@ -263,7 +263,7 @@
         "fairness": 1,
         "loyalty": 10.6,
         "authority": 8.7,
-        "purity": 1
+        "purity": 3.9
       },
       "dominantFoundation": "loyalty",
       "matchedKeywords": {
@@ -289,6 +289,7 @@
           "respect"
         ],
         "purity": [
+          "since",
           "degrade"
         ],
         "anger": [
