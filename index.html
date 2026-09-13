@@ -416,21 +416,6 @@
     display: block;
   }
 
-  /* ================= PEACE AND CONFLICT MODULE (Pillar 3) ================= */
-  /* Bar chart, not a line/area chart like Panels 1 and 2: a cross-sectional
-     snapshot of where displacement originates in the latest year is itself
-     the leverage/blowback signal here (Galtung; Fanon), not a trend over
-     time \u2014 see DECISIONS.md, "Peace and Conflict module visualizations."
-     Colored ristra, matching the ticker's forcibly-displaced indicator and
-     the color already reserved for Pillar 3 under the one-token-per-pillar
-     rule \u2014 no color exception here, unlike the Gini chart above. */
-
-  .peace-chart svg {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
   /* ================= FOOTER ================= */
 
   .footer {
@@ -507,6 +492,7 @@
   .tag--community[data-series="turquoise"]  { color: var(--turquoise); border-color: var(--turquoise); }
   .tag--community[data-series="ochre"]      { color: var(--ochre); border-color: var(--ochre); }
   .tag--community[data-series="sage"]       { color: var(--sage); border-color: var(--sage); }
+  .tag--community[data-series="ristra"]     { color: var(--ristra); border-color: var(--ristra); }
 </style>
 </head>
 <body>
@@ -556,13 +542,7 @@
       </div>
       <div class="panel-placeholder">
         <h2 class="panel-placeholder__title" aria-label="Peace and Conflict">3</h2>
-        <div class="peace-module" id="peaceModule" aria-label="Forcibly displaced persons by region of origin, latest available year">
-          <h3 class="energy-view__label">Forcibly displaced persons by region of origin (UNHCR Refugee Data Finder)</h3>
-          <div class="peace-chart" id="peaceChart"></div>
-          <p class="energy-view__disclaimer" id="peaceDisclaimer">
-            Illustrative placeholder values (approximate, not live-fetched) — pending the scheduled pipeline's first successful run of <code>peace-data.json</code>.
-          </p>
-        </div>
+        <p class="panel-placeholder__note">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
       </div>
       <div class="panel-placeholder">
         <h2 class="panel-placeholder__title" aria-label="Energy">4</h2>
@@ -582,22 +562,22 @@
 
   <footer class="footer">
     <div>
-      <h2 class="footer__samples-title">Discourse-tagging output format (illustrative)</h2>
-      <p class="footer__samples-note">
+      <h2 class="footer__samples-title">Discourse-tagging output format</h2>
+      <p class="footer__samples-note" id="discourseNote">
         The four examples below are synthetic — written for this template, not drawn from real posts, platforms, or users — and exist only to preview how the NLP toolkit's sentiment/discourse-cluster tags would attach to real analyzed text once that pipeline exists.
       </p>
       <div class="sample-grid" id="sampleGrid"></div>
+      <div class="energy-legend" id="discourseLegend" style="margin-top:10px;"></div>
     </div>
 
     <p class="footer__status">
       Data as of <span id="dataAsOf"></span> &middot;
-      Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series, WTI 20-day realized volatility, US home price YoY growth), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly), UNHCR (forcibly displaced persons, global total, annual) &middot;
+      Live via scheduled pipeline: FRED (T10Y2Y, labor share, Nominal Broad Dollar Index, US Gini ratio time series, WTI 20-day realized volatility, US home price YoY growth), BLS (unemployment gap), WID.world/OWID (global top 1% wealth share, US top 1% income share, both annual), EIA (Strategic Petroleum Reserve, weekly) &middot;
       Tracked but not in the core ticker: Census Bureau White\u2013Black income gap (a single-point annual read with no computed year-over-year change; a second, separate Census-ACS Gini fetch is also defined but unused now that the FRED-sourced Gini time series above covers the Distributional Justice panel) &middot;
       Structural Power panel (Pillar 1): student loans owned &amp; securitized (Federal Reserve G.19, via FRED, monthly) &middot;
-      Peace and Conflict panel (Pillar 3): forcibly displaced persons by region of origin (UNHCR Refugee Data Finder API, annual) &middot;
       Still placeholder pending Tier 2 wiring: ECB SDW, EU ETS/Ember, US Treasury OFAC &middot;
       Dropped for lack of a low-lift API: Cornell/Illinois Labor Action Tracker, ACLED &middot;
-      Planned discourse-analysis inputs: public speech transcripts, official party platform publications, and public posts from politicians' verified official accounts &mdash; not private citizens' social media &middot;
+      Discourse-tagging module (Pillar 1): official floor-speech transcripts (GovInfo Congressional Record), lexicon-scored &mdash; not private citizens' social media. Still planned: official party platform publications and posts from politicians' verified official accounts &middot;
       see Methodology (above) for per-indicator sourcing once documented.
     </p>
   </footer>
@@ -746,25 +726,95 @@
     // format (sentiment tone + discourse-cluster label) the NLP toolkit
     // described in DECISIONS.md's Technical Requirements would eventually
     // produce from real analyzed text.
-    const discourseSamples = [
+    // Illustrative fallback, shown when ./discourse-data.json is
+    // unavailable or empty \u2014 synthetic, written for this template, not
+    // drawn from real posts, platforms, or users.
+    const DISCOURSE_FALLBACK = [
       { text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.", tone: "negative", toneScore: "\u22122.1", cluster: "Populist-nationalist", series: "terracotta" },
       { text: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip.", tone: "positive", toneScore: "+2.4", cluster: "Labor-solidarity", series: "turquoise" },
       { text: "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore.", tone: "neutral", toneScore: "+0.1", cluster: "Technocratic-centrist", series: "ochre" },
       { text: "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt.", tone: "negative", toneScore: "\u22121.6", cluster: "Environmental-justice", series: "sage" },
     ];
 
-    function renderSamples() {
+    // Color-token exception (see DECISIONS.md, "Discourse-tagging
+    // module"): the five Moral Foundations Dictionary categories reuse
+    // the five-token palette as a plain categorical set, same reasoning
+    // already accepted for the Energy module's generation-mix chart.
+    const FOUNDATION_SERIES = { care: "sage", fairness: "turquoise", loyalty: "terracotta", authority: "ochre", purity: "ristra" };
+    const FOUNDATION_LABEL = { care: "Care", fairness: "Fairness", loyalty: "Loyalty", authority: "Authority", purity: "Purity" };
+
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    // Converts one live discourse-data.json entry (lexicon scores) into
+    // the same {text, tone, toneScore, cluster, series} shape the fallback
+    // cards already use, so a single renderSamples() handles both.
+    function entryToCard(entry) {
+      const score = entry.tone?.score ?? 0;
+      const tone = score > 3 ? "positive" : score < -3 ? "negative" : "neutral";
+      const toneScore = `${score >= 0 ? "+" : "\u2212"}${Math.abs(score).toFixed(1)}`;
+      const foundation = entry.dominantFoundation;
+      const cluster = foundation ? `${FOUNDATION_LABEL[foundation]}-salient` : "Mixed / below threshold";
+      const series = foundation ? FOUNDATION_SERIES[foundation] : null;
+      return { text: entry.excerpt, tone, toneScore, cluster, series };
+    }
+
+    function renderSamples(samples) {
       const grid = document.getElementById("sampleGrid");
-      grid.innerHTML = discourseSamples.map(s => `
+      grid.innerHTML = samples.map(s => `
         <div class="sample-card">
           <p class="sample-card__text">${s.text}</p>
           <div class="sample-card__tags">
             <span class="tag tag--sentiment" data-tone="${s.tone}">tone ${s.toneScore}</span>
-            <span class="tag tag--community" data-series="${s.series}">${s.cluster}</span>
+            <span class="tag tag--community"${s.series ? ` data-series="${s.series}"` : ""}>${s.cluster}</span>
           </div>
         </div>`).join("");
     }
-    renderSamples();
+
+    function renderDiscourseLegend() {
+      const legend = document.getElementById("discourseLegend");
+      if (!legend) return;
+      legend.innerHTML = Object.entries(FOUNDATION_SERIES).map(([foundation, series]) => `
+        <span class="energy-legend__item">
+          <span class="energy-legend__swatch" style="background:var(--${series})"></span>
+          ${FOUNDATION_LABEL[foundation]}
+        </span>`).join("");
+    }
+
+    // Fetches ./discourse-data.json (written by fetchDiscourseTags() in
+    // fetch-ticker-data.mjs via the same scheduled GitHub Action). Falls
+    // back to DISCOURSE_FALLBACK on any failure or empty payload, same
+    // convention as loadEnergyData()/loadGiniData()/loadStudentLoanData().
+    // See DECISIONS.md, "Discourse-tagging module", for the lexicon-based
+    // (Moral Foundations Dictionary + NRC-style emotion lexicon) method
+    // this data was scored with, and why that method was chosen over an
+    // LLM call.
+    async function loadDiscourseData() {
+      let cards = DISCOURSE_FALLBACK;
+      let asOf = null;
+      let source = null;
+      try {
+        const res = await fetch("./discourse-data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.entries?.length) {
+          cards = data.entries.map(entryToCard);
+          asOf = data.asOf ?? null;
+          source = data.source ?? null;
+        }
+      } catch (err) {
+        console.warn("discourse-data.json unavailable, using illustrative placeholder values:", err);
+      }
+
+      renderSamples(cards);
+      renderDiscourseLegend();
+
+      const note = document.getElementById("discourseNote");
+      if (!note) return;
+      note.innerHTML = asOf
+        ? `As of ${asOf} &middot; live via scheduled pipeline, sourced from ${source}. Tagged with a lexicon-based method (Moral Foundations Dictionary + an NRC-style emotion lexicon starter subset) &mdash; word-frequency matching, not LLM interpretation; see Methodology (above) once documented.`
+        : `Illustrative placeholder values (not live-fetched yet) &middot; pending the scheduled pipeline's first run of <code>discourse-data.json</code> (GovInfo Congressional Record, scored with a lexicon-based method &mdash; see Methodology above once documented).`;
+    }
+    loadDiscourseData();
 
     // ============ ENERGY MODULE (Pillar 4) ============
     // Illustrative placeholder values ONLY — hand-set, not fetched. Framed
@@ -971,84 +1021,6 @@
         : `Illustrative placeholder values (real historical FRED figures through 2024, not live-fetched yet) &middot; pending the scheduled pipeline's first run of <code>gini-data.json</code> (FRED: <code>GINIALLRH</code>).`;
     }
     loadGiniData();
-
-    // ============ PEACE AND CONFLICT MODULE (Pillar 3) ============
-    // Forcibly displaced persons by region of origin, latest available
-    // year (UNHCR Refugee Data Finder API). A cross-sectional snapshot,
-    // not a trend, per DECISIONS.md — so this is a bar chart, the
-    // dashboard's first non-time-series panel visualization. Live data
-    // comes from ./peace-data.json, written by fetchDisplacementByRegion()
-    // in fetch-ticker-data.mjs via the same scheduled GitHub Action.
-    //
-    // Placeholder values below are illustrative/approximate only (rough
-    // ordering of regions per general UNHCR reporting patterns) — unlike
-    // the Gini/student-loan fallbacks, this can't be a verified historical
-    // pull, since a regional breakdown isn't published as a simple static
-    // series the way a FRED time series is. Treat these as a stand-in
-    // shape for the chart, not a sourced figure, until a real Action run
-    // populates peace-data.json.
-    const PEACE_PLACEHOLDER = [
-      { region: "Sub-Saharan Africa", millions: 34.1 },
-      { region: "Middle East and North Africa", millions: 24.6 },
-      { region: "Europe", millions: 21.3 },
-      { region: "Asia and the Pacific", millions: 18.7 },
-      { region: "Americas", millions: 17.2 },
-      { region: "Southern Asia", millions: 7.0 },
-    ];
-
-    function renderPeaceChart(data) {
-      const w = 480, barH = 22, gap = 10, padL = 150, padR = 46, padT = 8, padB = 4;
-      const n = data.length;
-      const h = padT + padB + n * (barH + gap) - gap;
-      const maxVal = Math.max(...data.map((d) => d.millions));
-      const plotW = w - padL - padR;
-      const xAt = (v) => (v / maxVal) * plotW;
-
-      const bars = data.map((d, i) => {
-        const y = padT + i * (barH + gap);
-        const barW = Math.max(xAt(d.millions), 1);
-        return `
-          <text x="${padL - 8}" y="${y + barH / 2 + 4}" text-anchor="end" font-size="10" fill="var(--text)" opacity="0.85" font-family="var(--font-label)">${d.region}</text>
-          <rect x="${padL}" y="${y}" width="${barW}" height="${barH}" fill="var(--ristra)" opacity="0.85" rx="1" />
-          <text x="${padL + barW + 6}" y="${y + barH / 2 + 4}" font-size="10" fill="var(--text)" opacity="0.9" font-family="var(--font-data)">${d.millions.toFixed(1)}M</text>
-        `;
-      }).join("");
-
-      document.getElementById("peaceChart").innerHTML = `
-        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Bar chart of forcibly displaced persons by region of origin; largest is ${data[0].region} at ${data[0].millions.toFixed(1)} million">
-          ${bars}
-        </svg>`;
-    }
-
-    // Same >=3-nonzero-regions sanity check the fetcher itself already
-    // applies server-side (see fetchDisplacementByRegion in
-    // fetch-ticker-data.mjs) — defense in depth, so a peace-data.json left
-    // over from a bad run (or one written before that guard existed)
-    // can't silently render a misleadingly sparse chart client-side either.
-    async function loadPeaceData() {
-      let series = PEACE_PLACEHOLDER;
-      let asOf = null;
-      try {
-        const res = await fetch("./peace-data.json", { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data.series?.length >= 3) {
-          series = data.series;
-          asOf = data.asOf ?? null;
-        }
-      } catch (err) {
-        console.warn("peace-data.json unavailable, using illustrative placeholder values:", err);
-      }
-
-      renderPeaceChart(series);
-
-      const disclaimer = document.getElementById("peaceDisclaimer");
-      if (!disclaimer) return;
-      disclaimer.innerHTML = asOf
-        ? `As of ${asOf} &middot; live via scheduled pipeline (UNHCR Refugee Data Finder API), top ${series.length} regions of origin by forcibly displaced persons.`
-        : `Illustrative placeholder values (approximate, not live-fetched) &middot; pending the scheduled pipeline's first successful run of <code>peace-data.json</code> (UNHCR Refugee Data Finder API).`;
-    }
-    loadPeaceData();
 
     // ============ STRUCTURAL POWER & POLITICAL ECONOMY MODULE (Pillar 1) ============
     // Student Loans Owned and Securitized (FRED: SLOASM, Board of
