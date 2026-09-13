@@ -1,10 +1,54 @@
 {
-  "generatedAt": "2026-09-13T02:43:50.762Z",
+  "generatedAt": "2026-09-13T02:55:11.427Z",
   "asOf": "2026-09-10",
-  "packageId": "CREC-2026-09-10",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "date": "2026-09-10",
+      "excerpt": "…43 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
+      "wordCount": 88,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 11.4,
+        "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "loyalty",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [
+          "justice"
+        ],
+        "loyalty": [
+          "allegiance",
+          "nation"
+        ],
+        "authority": [],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
     {
       "granuleId": "CREC-2026-09-10-pt1-PgH-FrontMatter-3",
       "title": "House of Representatives",
@@ -122,260 +166,6 @@
         "positive": 0,
         "negative": 0,
         "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-4",
-      "title": "PRAYER",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 122,
-      "moralFoundations": {
-        "care": 16.4,
-        "fairness": 0,
-        "loyalty": 8.2,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": "care",
-      "matchedKeywords": {
-        "care": [
-          "protect",
-          "care"
-        ],
-        "fairness": [],
-        "loyalty": [
-          "nation"
-        ],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [
-          "good"
-        ],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 8.2,
-        "negative": 0,
-        "score": 8.2
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-5",
-      "title": "THE JOURNAL",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 49,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
-      "title": "PLEDGE OF ALLEGIANCE",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 88,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 11.4,
-        "loyalty": 56.8,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "allegiance",
-          "nation"
-        ],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-7",
-      "title": "EXPRESSING THE SENSE OF THE HOUSE OF REPRESENTATIVES REGARDING THE TERRORIST ATTACKS LAUNCHED AGAINST THE UNITED STATES ON SEPTEMBER 11, 2001, ON THE 25TH ANNIVERSARY OF THAT DATE",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Pages H5523-H5524] From the Congressional Record Online thro…",
-      "wordCount": 1036,
-      "moralFoundations": {
-        "care": 7.7,
-        "fairness": 1,
-        "loyalty": 10.6,
-        "authority": 8.7,
-        "purity": 3.9
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [
-          "protect",
-          "victims",
-          "protected",
-          "safely"
-        ],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "nation",
-          "communities",
-          "together",
-          "national",
-          "nations"
-        ],
-        "authority": [
-          "law",
-          "leaders",
-          "respect"
-        ],
-        "purity": [
-          "since",
-          "degrade"
-        ],
-        "anger": [
-          "attacks",
-          "threaten",
-          "hateful",
-          "threat"
-        ],
-        "fear": [
-          "risked"
-        ],
-        "joy": [],
-        "sadness": [
-          "mourn",
-          "tragic",
-          "loss"
-        ],
-        "positive": [
-          "success",
-          "successive",
-          "supported",
-          "support"
-        ],
-        "negative": [
-          "damaged",
-          "weaken",
-          "threaten",
-          "threat"
-        ]
-      },
-      "emotions": {
-        "anger": 15.4,
-        "fear": 1,
-        "joy": 0,
-        "sadness": 4.8
-      },
-      "dominantEmotion": "anger",
-      "tone": {
-        "positive": 3.9,
-        "negative": 3.9,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5524",
-      "title": "BILL PRESENTED TO THE PRESIDENT",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5524] From the Congressional Record Online through the…",
-      "wordCount": 91,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 22,
-        "purity": 0
-      },
-      "dominantFoundation": "authority",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [
-          "duty",
-          "respect"
-        ],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [
-          "growth",
-          "opportunity"
-        ],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 22,
-        "negative": 0,
-        "score": 22
       }
     }
   ]
