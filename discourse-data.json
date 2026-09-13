@@ -1,3 +1,217 @@
 {
-  "generatedAt": "2026-09-13T00:38:40.284Z"
+  "generatedAt": "2026-09-13T00:45:19.662Z",
+  "asOf": "2026-09-10",
+  "packageId": "CREC-2026-09-10",
+  "source": "GovInfo Congressional Record (CREC)",
+  "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
+  "entries": [
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH-FrontMatter-3",
+      "title": "House of Representatives",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
+      "wordCount": 55,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": null,
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-2",
+      "title": "The House met at 3:30 p.m. and was called to order by the Speaker pro tempore (Mr. Walberg).",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
+      "wordCount": 46,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 21.7,
+        "purity": 0
+      },
+      "dominantFoundation": null,
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-3",
+      "title": "DESIGNATION OF THE SPEAKER PRO TEMPORE",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
+      "wordCount": 75,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": null,
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-4",
+      "title": "PRAYER",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
+      "wordCount": 122,
+      "moralFoundations": {
+        "care": 16.4,
+        "fairness": 0,
+        "loyalty": 8.2,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "care",
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 8.2,
+        "negative": 0,
+        "score": 8.2
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-5",
+      "title": "THE JOURNAL",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
+      "wordCount": 49,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": null,
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
+      "wordCount": 88,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 11.4,
+        "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "loyalty",
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-7",
+      "title": "EXPRESSING THE SENSE OF THE HOUSE OF REPRESENTATIVES REGARDING THE TERRORIST ATTACKS LAUNCHED AGAINST THE UNITED STATES ON SEPTEMBER 11, 2001, ON THE 25TH ANNIVERSARY OF THAT DATE",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Pages H5523-H5524] From the Congressional Record Online thro…",
+      "wordCount": 1036,
+      "moralFoundations": {
+        "care": 7.7,
+        "fairness": 1,
+        "loyalty": 10.6,
+        "authority": 8.7,
+        "purity": 3.9
+      },
+      "dominantFoundation": "loyalty",
+      "emotions": {
+        "anger": 15.4,
+        "fear": 1,
+        "joy": 0,
+        "sadness": 4.8
+      },
+      "dominantEmotion": "anger",
+      "tone": {
+        "positive": 3.9,
+        "negative": 3.9,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-10-pt1-PgH5524",
+      "title": "BILL PRESENTED TO THE PRESIDENT",
+      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5524] From the Congressional Record Online through the…",
+      "wordCount": 91,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 22,
+        "purity": 0
+      },
+      "dominantFoundation": "authority",
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 22,
+        "negative": 0,
+        "score": 22
+      }
+    }
+  ]
 }
