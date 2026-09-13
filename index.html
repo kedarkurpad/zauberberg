@@ -728,12 +728,14 @@
     // produce from real analyzed text.
     // Illustrative fallback, shown when ./discourse-data.json is
     // unavailable or empty \u2014 synthetic, written for this template, not
-    // drawn from real posts, platforms, or users.
+    // drawn from real posts, platforms, or users. Shaped like the real
+    // "matched keywords" output (see entryToCard below), not a prose
+    // excerpt, so the fallback preview matches what live data looks like.
     const DISCOURSE_FALLBACK = [
-      { text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.", tone: "negative", toneScore: "\u22122.1", cluster: "Populist-nationalist", series: "terracotta" },
-      { text: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip.", tone: "positive", toneScore: "+2.4", cluster: "Labor-solidarity", series: "turquoise" },
-      { text: "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore.", tone: "neutral", toneScore: "+0.1", cluster: "Technocratic-centrist", series: "ochre" },
-      { text: "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt.", tone: "negative", toneScore: "\u22121.6", cluster: "Environmental-justice", series: "sage" },
+      { text: "Matched terms \u2014 Loyalty: patriot, homeland \u00b7 Anger: threat, hostile", tone: "negative", toneScore: "\u22122.1", cluster: "Loyalty-salient", series: "terracotta" },
+      { text: "Matched terms \u2014 Care: protect, victims \u00b7 Joy: hope, pride", tone: "positive", toneScore: "+2.4", cluster: "Care-salient", series: "sage" },
+      { text: "Matched terms \u2014 Authority: law, order", tone: "neutral", toneScore: "+0.1", cluster: "Authority-salient", series: "ochre" },
+      { text: "No category cleared the minimum-match threshold for this excerpt.", tone: "negative", toneScore: "\u22121.6", cluster: "Mixed / below threshold", series: null },
     ];
 
     // Color-token exception (see DECISIONS.md, "Discourse-tagging
@@ -742,20 +744,39 @@
     // already accepted for the Energy module's generation-mix chart.
     const FOUNDATION_SERIES = { care: "sage", fairness: "turquoise", loyalty: "terracotta", authority: "ochre", purity: "ristra" };
     const FOUNDATION_LABEL = { care: "Care", fairness: "Fairness", loyalty: "Loyalty", authority: "Authority", purity: "Purity" };
+    const EMOTION_LABEL = { anger: "Anger", fear: "Fear", joy: "Joy", sadness: "Sadness" };
 
     function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
     // Converts one live discourse-data.json entry (lexicon scores) into
     // the same {text, tone, toneScore, cluster, series} shape the fallback
     // cards already use, so a single renderSamples() handles both.
+    //
+    // Surfaces the actual matched dictionary words (entry.matchedKeywords)
+    // for the dominant foundation/emotion, rather than a prose excerpt of
+    // the source speech \u2014 changed by request: showing the literal words
+    // that triggered a category is more auditable/interpretable than a
+    // paragraph of surrounding text, and keeps the card's claim narrowly
+    // scoped to what the lexicon method can actually support. See
+    // DECISIONS.md, "Discourse-tagging module."
     function entryToCard(entry) {
       const score = entry.tone?.score ?? 0;
       const tone = score > 3 ? "positive" : score < -3 ? "negative" : "neutral";
       const toneScore = `${score >= 0 ? "+" : "\u2212"}${Math.abs(score).toFixed(1)}`;
       const foundation = entry.dominantFoundation;
+      const emotion = entry.dominantEmotion;
       const cluster = foundation ? `${FOUNDATION_LABEL[foundation]}-salient` : "Mixed / below threshold";
       const series = foundation ? FOUNDATION_SERIES[foundation] : null;
-      return { text: entry.excerpt, tone, toneScore, cluster, series };
+
+      const kw = entry.matchedKeywords || {};
+      const parts = [];
+      if (foundation && kw[foundation]?.length) parts.push(`${FOUNDATION_LABEL[foundation]}: ${kw[foundation].join(", ")}`);
+      if (emotion && kw[emotion]?.length) parts.push(`${EMOTION_LABEL[emotion]}: ${kw[emotion].join(", ")}`);
+      const text = parts.length
+        ? `Matched terms \u2014 ${parts.join(" \u00b7 ")}`
+        : "No category cleared the minimum-match threshold for this excerpt.";
+
+      return { text, tone, toneScore, cluster, series };
     }
 
     function renderSamples(samples) {
@@ -977,9 +998,21 @@
 
       // Label roughly every 5th year so labels don't collide on a long
       // annual series, always including the first and last points.
+      //
+      // FIX (2026-09-12, after a live run showed the last two labels
+      // overlapping into garbled text): a plain "i % labelStep === 0"
+      // check can land a label within a couple of indices of the forced
+      // last point, and at these font sizes/pixel widths that's close
+      // enough to visually collide. Suppress any modulo-triggered label
+      // (never the forced i===0 or i===n-1 themselves) that falls within
+      // a full labelStep of the last index \u2014 guarantees a minimum pixel
+      // gap independent of series length, rather than a half-step margin
+      // that still let a couple of realistic cases collide.
       const labelStep = Math.max(1, Math.round(n / 8));
       const xLabels = data.map((d, i) => {
-        const show = i === 0 || i === n - 1 || i % labelStep === 0;
+        const isEndpoint = i === 0 || i === n - 1;
+        const tooCloseToEnd = !isEndpoint && n - 1 - i < labelStep;
+        const show = isEndpoint || (i % labelStep === 0 && !tooCloseToEnd);
         return show
           ? `<text x="${xAt(i)}" y="${h - 6}" text-anchor="middle" font-size="9" fill="var(--text)" opacity="0.5" font-family="var(--font-data)">${d.year}</text>`
           : "";
@@ -1094,9 +1127,15 @@
           <text x="${padL - 6}" y="${yAt(v) + 3}" text-anchor="end" font-size="9" fill="var(--text)" opacity="0.5" font-family="var(--font-data)">$${v.toFixed(1)}T</text>
         `).join("");
 
+      // FIX (2026-09-12, same collision as the Gini chart above): suppress
+      // a modulo-triggered label that lands too close to the forced last
+      // index, which is the case that actually surfaced as overlapping
+      // garbled text on this chart's live (denser, quarterly) series.
       const labelStep = Math.max(1, Math.round(n / 8));
       const xLabels = data.map((d, i) => {
-        const show = i === 0 || i === n - 1 || i % labelStep === 0;
+        const isEndpoint = i === 0 || i === n - 1;
+        const tooCloseToEnd = !isEndpoint && n - 1 - i < labelStep;
+        const show = isEndpoint || (i % labelStep === 0 && !tooCloseToEnd);
         const year = d.date.slice(0, 4);
         return show
           ? `<text x="${xAt(i)}" y="${h - 6}" text-anchor="middle" font-size="9" fill="var(--text)" opacity="0.5" font-family="var(--font-data)">${year}</text>`
