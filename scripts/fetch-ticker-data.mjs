@@ -1302,6 +1302,18 @@ async function fetchDiscourseTags() {
   const collectionsUrl = `https://api.govinfo.gov/collections/CHRG/${since}?offsetMark=*&pageSize=${DISCOURSE_TARGET_COUNT * 15}&api_key=${key}`;
   const collectionsData = await safeFetchJson(collectionsUrl);
   const packages = collectionsData?.packages ?? [];
+  // DIAGNOSTIC (added after the first live run came back with "no
+  // qualifying granules found" and no visibility into why \u2014 same
+  // convention as the UNHCR fetchers' [diag] lines): confirms whether the
+  // shared DEMO_KEY's low rate limit (30/hr, 50/day) is the actual
+  // bottleneck, vs. a genuine lack of qualifying hearings, vs. a
+  // summary/granule field-name mismatch. Also logs which key is actually
+  // in effect \u2014 if GOVINFO_API_KEY isn't wired through the workflow's
+  // env block, this silently falls back to DEMO_KEY and every call after
+  // the shared quota is exhausted fails, caught per-package below and
+  // easy to mistake for "there just aren't enough qualifying hearings."
+  console.log(`[diag] discourse: using ${key === "DEMO_KEY" ? "shared DEMO_KEY (low quota, 30/hr \u2014 50/day)" : "a configured GOVINFO_API_KEY"}`);
+  console.log(`[diag] discourse: collections/CHRG returned ${packages.length} package(s)`);
   if (!packages.length) throw new Error("GovInfo: no recent CHRG packages found in the lookback window");
 
   // Trust the collections response's own ordering only as a starting
@@ -1313,6 +1325,11 @@ async function fetchDiscourseTags() {
 
   const entries = [];
   const seenPackages = new Set();
+  // Tallies for the [diag] summary below \u2014 lets the Action log
+  // distinguish "ran out of quota" from "genuinely nothing qualified"
+  // from "summary/granule shape didn't match" without re-reading every
+  // per-package [warn] line individually.
+  const skipTally = { noSummaryDate: 0, noGranules: 0, nothingCleared: 0, requestError: 0 };
 
   for (const pkg of packages) {
     if (entries.length >= DISCOURSE_TARGET_COUNT) break;
@@ -1326,12 +1343,12 @@ async function fetchDiscourseTags() {
       const summaryUrl = `https://api.govinfo.gov/packages/${packageId}/summary?api_key=${key}`;
       const summary = await safeFetchJson(summaryUrl);
       const date = (summary?.heldDates?.[0] ?? summary?.dateIssued ?? "").slice(0, 10);
-      if (!date) continue; // can't place this hearing in time; skip rather than mislabel it
+      if (!date) { skipTally.noSummaryDate++; continue; } // can't place this hearing in time; skip rather than mislabel it
 
       const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
       const granulesData = await safeFetchJson(granulesUrl);
       const allGranules = granulesData?.granules ?? [];
-      if (!allGranules.length) continue; // no granules for this hearing; try the next one
+      if (!allGranules.length) { skipTally.noGranules++; continue; } // no granules for this hearing; try the next one
 
       const substantive = allGranules.filter(isSubstantive);
       const candidates = (substantive.length ? substantive : allGranules).slice(0, 8);
@@ -1360,7 +1377,7 @@ async function fetchDiscourseTags() {
         }
       }
 
-      if (!best) continue; // nothing in this hearing cleared threshold; try the next one
+      if (!best) { skipTally.nothingCleared++; continue; } // nothing in this hearing cleared threshold; try the next one
 
       const matchedWords = [
         ...(best.scored.dominantFoundation ? best.scored.matchedKeywords[best.scored.dominantFoundation] ?? [] : []),
@@ -1374,9 +1391,12 @@ async function fetchDiscourseTags() {
         ...best.scored,
       });
     } catch (err) {
+      skipTally.requestError++;
       console.error(`[warn] discourse-tagging: skipped package ${packageId}: ${err.message}`);
     }
   }
+
+  console.log(`[diag] discourse: examined ${seenPackages.size} package(s), kept ${entries.length}; skipped \u2014 no summary date: ${skipTally.noSummaryDate}, no granules: ${skipTally.noGranules}, nothing cleared threshold: ${skipTally.nothingCleared}, request errors (check for 429/rate-limit): ${skipTally.requestError}`);
 
   if (!entries.length) throw new Error("GovInfo: no qualifying granules found across recent CHRG hearings in the lookback window");
 
