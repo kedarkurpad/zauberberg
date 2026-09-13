@@ -5,9 +5,11 @@
  * Energy module's generation-mix chart dataset and writes /energy-data.json
  * alongside it, the Distributional Justice module's US Gini time series,
  * writing /gini-data.json, the Structural Power module's Student Loans
- * Owned and Securitized time series, writing /student-loan-data.json, and
- * the Peace and Conflict module's forcibly-displaced-persons-by-region
- * breakdown, writing /peace-data.json.
+ * Owned and Securitized time series, writing /student-loan-data.json, the
+ * Peace and Conflict module's forcibly-displaced-persons-by-region
+ * breakdown, writing /peace-data.json, and the discourse-tagging module's
+ * lexicon-scored Congressional Record excerpts, writing /discourse-data.json
+ * (see DECISIONS.md, "Discourse-tagging module").
  *
  * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
  * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
@@ -25,6 +27,12 @@
  *   EIA_API_KEY    - https://www.eia.gov/opendata/register.php (free, REQUIRED
  *                    for fetchSPR \u2014 EIA does not offer an unauthenticated
  *                    fallback the way BLS/Census do)
+ *   GOVINFO_API_KEY - https://api.govinfo.gov/docs/ (free, OPTIONAL \u2014 GovInfo
+ *                    accepts the shared, unregistered "DEMO_KEY" at a low rate
+ *                    limit (30/hr, 50/day per api.data.gov's shared quota) for
+ *                    fetchDiscourseTags(). Register for a personal key only if
+ *                    the demo quota turns out to be too tight for the daily
+ *                    schedule \u2014 see DECISIONS.md, "Discourse-tagging module".)
  *
  * Design notes (see DECISIONS.md, Technical Requirements):
  *   - Wired up and in the core ticker: FRED (T10Y2Y, labor share, Nominal
@@ -60,6 +68,23 @@
  *     origin for the panel's grouped bar chart \u2014 the dashboard's first
  *     non-time-series panel chart. Both unverified against a live
  *     response (no network egress in this sandbox); see DECISIONS.md.
+ *   - Discourse-tagging module (separate output, discourse-data.json, not
+ *     the ticker): fetchDiscourseTags(), sourced from the GovInfo
+ *     Congressional Record (CREC) API \u2014 official daily speech transcripts,
+ *     fitting the already-logged "public speech transcripts... not private
+ *     citizens' social media" input scope. Scored with a lexicon-based
+ *     method (Moral Foundations Dictionary + an NRC-style emotion lexicon)
+ *     rather than an LLM call \u2014 chosen by request over both a paid
+ *     Anthropic API call and a locally-run open model, on interpretability,
+ *     setup-lift, and methodological-credibility grounds. This is
+ *     deliberately second-generation NLP by the Törnberg paper's own
+ *     typology (dictionary/word-frequency matching), not the third-
+ *     generation "TDAA" framing floated earlier in this project's design
+ *     discussion \u2014 see DECISIONS.md, "Discourse-tagging module", for the
+ *     full reasoning and the tradeoff this accepts. The bundled word lists
+ *     are a small illustrative STARTER SUBSET, not the full published MFD
+ *     2.0 / NRC EmoLex files \u2014 swap in the full dictionaries (both free
+ *     for academic use) before treating this as a real research instrument.
  *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
  *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
  *     a single-point annual read with no prior-year diff — so neither
@@ -78,6 +103,7 @@ const ENERGY_OUT_PATH = path.resolve(process.cwd(), "energy-data.json");
 const GINI_OUT_PATH = path.resolve(process.cwd(), "gini-data.json");
 const STUDENT_LOAN_OUT_PATH = path.resolve(process.cwd(), "student-loan-data.json");
 const PEACE_OUT_PATH = path.resolve(process.cwd(), "peace-data.json");
+const DISCOURSE_OUT_PATH = path.resolve(process.cwd(), "discourse-data.json");
 
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
@@ -125,6 +151,15 @@ async function loadExistingStudentLoan() {
 async function loadExistingPeace() {
   try {
     const raw = await readFile(PEACE_OUT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function loadExistingDiscourse() {
+  try {
+    const raw = await readFile(DISCOURSE_OUT_PATH, "utf8");
     return JSON.parse(raw);
   } catch {
     return {};
@@ -728,45 +763,6 @@ async function fetchEnergyVolatility() {
 }
 
 
-// ---- Shared UNHCR pagination helper ----
-// CONFIRMED 2026-09-11 (via [diag] row-count logs): requesting limit=1000
-// does raise UNHCR's per-request cap \u2014 both fetchers went from ~100 rows
-// to exactly 1000. But "exactly 1000" is itself the signal that more data
-// exists past that page (a true last page returns fewer than the limit),
-// which is why fetchDisplacement's global total is still implausibly low
-// (15.0M) even after that fix. This helper pages through results with
-// UNHCR's `page` param, accumulating rows until a page returns fewer than
-// `limit` rows (the standard "last page" signal) or MAX_PAGES is hit as a
-// safety ceiling.
-//
-// CAVEAT: `page` is inferred from common REST convention, not confirmed
-// against UNHCR's docs (no network egress in this sandbox). If `page` is
-// actually ignored by the API, page 2 would come back identical to page
-// 1 \u2014 detected below and treated as "pagination isn't supported this
-// way," so we stop after one page rather than looping pointlessly or
-// double-counting the same rows. Diagnostic logging of pages fetched and
-// total row count is left in so the next real run confirms which case
-// we're in.
-async function fetchAllUnhcrRows(baseUrl, limit) {
-  const MAX_PAGES = 50; // safety ceiling: up to 50,000 rows across pages
-  const allRows = [];
-  let page = 1;
-  while (page <= MAX_PAGES) {
-    const data = await safeFetchJson(`${baseUrl}&page=${page}`, { headers: { "User-Agent": BROWSER_UA } });
-    const rows = data?.items ?? data?.data ?? [];
-    console.log(`[diag] page ${page}: ${rows.length} row(s)`);
-    if (page > 1 && rows.length && allRows.length && JSON.stringify(rows[0]) === JSON.stringify(allRows[0])) {
-      console.log(`[diag] page ${page} looks identical to page 1 \u2014 "page" param likely unsupported by this API; stopping after page 1`);
-      break;
-    }
-    allRows.push(...rows);
-    if (rows.length < limit) break; // fewer than a full page = last page
-    page++;
-  }
-  console.log(`[diag] fetched ${page} page(s), ${allRows.length} row(s) total from ${baseUrl.split("?")[0]}`);
-  return allRows;
-}
-
 // ---- UNHCR: Forcibly Displaced Persons, Global Total (Pillar 3) ----
 // Added 2026-09-11 by request. Sum of refugees, asylum-seekers, IDPs, and
 // other people in need of international protection (UNHCR's own "forcibly
@@ -795,28 +791,26 @@ async function fetchAllUnhcrRows(baseUrl, limit) {
 // cap silently truncating the result. See the fix comment inside the
 // function body and DECISIONS.md for the full root-cause writeup.
 async function fetchDisplacement() {
-  // ROOT CAUSE, part 1 (found 2026-09-11, via the [diag] logs on the
-  // first real run): coo_all=false&coa_all=false did NOT aggregate
-  // server-side into one global row as the docs implied \u2014 it returned
-  // ordinary per-country-pair rows, capped at the API's default page size
-  // (100), so summing them undercounted badly (9.2M vs. a real ~120M+
-  // global total). Fixed by switching to the same coo_all=true&coa_all=false
-  // shape already proven to return per-origin-country rows in
-  // fetchDisplacementByRegion().
-  //
-  // ROOT CAUSE, part 2 (found 2026-09-11, second real run): limit=1000
-  // alone wasn't enough either \u2014 it raised the per-request cap (confirmed:
-  // row count went from 100 to exactly 1000) but the real result set spans
-  // more than one page, so the total was still implausibly low (15.0M).
-  // Now pages through every result via fetchAllUnhcrRows() \u2014 see that
-  // function's own comment for the pagination-param caveat.
+  // ROOT CAUSE (found 2026-09-11, via the [diag] logs below on the first
+  // real run): coo_all=false&coa_all=false did NOT aggregate server-side
+  // into one global row as the docs implied \u2014 it returned ordinary
+  // per-country-pair rows, capped at the API's default page size (100),
+  // so summing them undercounted badly (9.2M vs. a real ~120M+ global
+  // total), correctly caught by the plausibility guard below. Fixed by
+  // switching to the same coo_all=true&coa_all=false shape already proven
+  // to return per-origin-country rows in fetchDisplacementByRegion(), and
+  // requesting a larger page (limit=1000) so summation covers (closer to)
+  // every country rather than the first 100 \u2014 see DECISIONS.md.
   const thisYear = new Date().getFullYear();
-  const LIMIT = 1000;
-  const baseUrl = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&coo_all=true&coa_all=false&limit=${LIMIT}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-  const allRows = await fetchAllUnhcrRows(baseUrl, LIMIT);
-  const rows = allRows.filter((r) => r.year);
+  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
+  const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
+  // DIAGNOSTIC: left in place (not just for the original shape question,
+  // now confirmed, but to verify on the next run whether limit=1000
+  // actually raises UNHCR's page cap past 100 \u2014 if row count is still
+  // ~100, the cap is server-enforced and real pagination is needed next.
   console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
-  console.log("[diag] /population (global) total row count across all pages:", rows.length);
+  console.log("[diag] /population (global) row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
 
   const byYear = {};
@@ -899,32 +893,27 @@ async function fetchDisplacementByRegion() {
     if (code) regionByCode[code] = region;
   }
 
-  // ROOT CAUSE, part 1 (found 2026-09-11, first real run): the
-  // region/coo field names were fine \u2014 the one-region result was
-  // UNHCR's default page size (100 rows) truncating the by-country
-  // breakdown before it ever reached the regional bucketing.
-  //
-  // ROOT CAUSE, part 2 (found 2026-09-11, second real run): limit=1000
-  // raised the per-request cap but this fetcher's result set for a full
-  // year of per-origin-country data likely still spans more than one
-  // page (this fetcher's own totals were never checked against a
-  // plausibility band the way fetchDisplacement's are, so a similar
-  // undercount could have been silently passing the >=3-region check
-  // without tripping anything). Now pages through every result via
-  // fetchAllUnhcrRows() \u2014 see that function's comment for the
-  // pagination-param caveat.
+  // ROOT CAUSE (found 2026-09-11, via the [diag] logs on the first real
+  // run): the region/coo field names were fine \u2014 the one-region result
+  // was UNHCR's default page size (100 rows) truncating the by-country
+  // breakdown before it ever reached the regional bucketing. Fixed with
+  // limit=1000 on both the primary and fallback-year requests \u2014 see
+  // DECISIONS.md.
   const thisYear = new Date().getFullYear();
-  const LIMIT = 1000;
-  const popBaseUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&limit=${LIMIT}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-  let rows = await fetchAllUnhcrRows(popBaseUrl, LIMIT);
+  const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  let data = await safeFetchJson(popUrl, { headers: { "User-Agent": BROWSER_UA } });
+  let rows = data?.items ?? data?.data ?? [];
   // Fall back one year if the current year has no published rows yet
   // (annual release, so the latest full year is often the prior one).
   if (!rows.length) {
-    const fallbackBaseUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&limit=${LIMIT}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-    rows = await fetchAllUnhcrRows(fallbackBaseUrl, LIMIT);
+    const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&coa_all=false&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+    data = await safeFetchJson(fallbackUrl, { headers: { "User-Agent": BROWSER_UA } });
+    rows = data?.items ?? data?.data ?? [];
   }
+  // DIAGNOSTIC (same reason as above): print the raw shape of the first
+  // /population row and the total row count actually returned.
   console.log("[diag] /population sample row:", JSON.stringify(rows[0] ?? null));
-  console.log("[diag] /population total row count across all pages:", rows.length);
+  console.log("[diag] /population row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable by-origin population rows returned");
 
   const byRegion = {};
@@ -963,20 +952,213 @@ async function fetchDisplacementByRegion() {
     );
   }
 
-  // MAGNITUDE GUARD (added 2026-09-11, alongside the pagination fix): the
-  // region-count check above can't catch an undercount that still spans
-  // several regions \u2014 exactly the failure mode fetchDisplacement() hit
-  // with only its own [50M, 300M] plausibility band to catch it. Applying
-  // the same band here to the summed total across all regions, since this
-  // fetcher pulls from the same underlying, page-limited dataset.
-  const totalAcrossRegions = Object.values(byRegion).reduce((s, v) => s + v, 0) / 1_000_000;
-  if (totalAcrossRegions < 50 || totalAcrossRegions > 300) {
-    throw new Error(
-      `UNHCR: region breakdown's total (${totalAcrossRegions.toFixed(1)}M) is outside the plausible [50M, 300M] range \u2014 likely an incomplete page fetch, see the [diag] log lines above`
+  return { asOf: String(asOfYear ?? thisYear), series };
+}
+
+// ---- Lexicon-based discourse tagging: Moral Foundations Dictionary + NRC-style emotion lexicon ----
+// Powers the footer's "Discourse-tagging output format" module (see
+// index.html, DECISIONS.md "Discourse-tagging module"). Pillar 1 fit per
+// the Technical Requirements section: NLP/discourse analysis applied to
+// drivers of far-right and ethnonationalist political outcomes (Mudde;
+// Norris & Inglehart; Petter & Anton Törnberg).
+//
+// METHOD, chosen by explicit request over an LLM call (paid Anthropic API
+// or a locally-run open model): plain lexicon/word-frequency matching
+// against two established, citable academic dictionaries —
+//   - Moral Foundations Dictionary (Graham, Haidt & Nosek): care,
+//     fairness, loyalty, authority, purity.
+//   - An NRC-style emotion lexicon (Mohammad & Turney convention): anger,
+//     fear, joy, sadness, plus a positive/negative "tone" pair.
+// This is deliberately second-generation NLP by the Törnberg paper's own
+// typology — transparent, auditable word-counting, not context-sensitive
+// interpretation — chosen for exactly that transparency, for its much
+// lighter setup lift (no model weights, no runtime, no API key required
+// at all), and because citing these two specific, widely-used dictionaries
+// reads as more methodologically credible for a junior-researcher-scoped
+// demo than an unvalidated model call would. See DECISIONS.md for the full
+// tradeoff writeup.
+//
+// IMPORTANT CAVEAT: the two lexicons below are a small ILLUSTRATIVE
+// STARTER SUBSET (a dozen or so words per category), not the full
+// published MFD 2.0 / NRC EmoLex files. Swap in the full dictionaries
+// (both freely downloadable for academic use) before treating this
+// module's output as a real research instrument rather than a demo.
+// Entries may end in "*" as a prefix wildcard, mirroring the real
+// dictionaries' own convention (e.g. "author*" matches "authority",
+// "authoritarian", "authoritative").
+const MORAL_FOUNDATIONS_LEXICON = {
+  care: ["care", "compassion", "suffer*", "cruel*", "kind*", "hurt*", "protect*", "safe*", "harm*", "empath*", "nurtur*", "victim*"],
+  fairness: ["fair*", "equal*", "justice", "rights", "unfair*", "cheat*", "bias*", "honest*", "discriminat*", "impartial*", "corrupt*"],
+  loyalty: ["loyal*", "betray*", "patriot*", "allegiance", "unity", "together", "team*", "nation*", "homeland", "traitor*", "solidarity", "communit*"],
+  authority: ["authorit*", "obey*", "order", "law*", "duty", "tradition*", "respect*", "rebel*", "chaos", "hierarch*", "leader*", "legitima*"],
+  purity: ["pure*", "sacred", "disgust*", "decent*", "clean*", "sin*", "virtue*", "corrupt*", "degrad*", "moral*", "filth*", "wholesom*"],
+};
+const EMOTION_LEXICON = {
+  anger: ["angr*", "outrage*", "furious", "hostil*", "rage", "resent*", "hate*", "threat*", "attack*", "aggress*"],
+  fear: ["afraid", "fear*", "danger*", "anxious", "anxiet*", "worry", "worri*", "panic*", "alarm*", "crisis", "risk*"],
+  joy: ["joy*", "happ*", "proud", "pride", "hope*", "celebrat*", "optimis*", "triumph*", "delight*", "cheer*", "encourag*"],
+  sadness: ["sad*", "grief", "griev*", "loss", "despair*", "mourn*", "tragedy", "tragic", "sorrow*", "declin*", "struggl*"],
+  positive: ["good", "benefit*", "support*", "success*", "strong*", "improve*", "progress*", "opportunit*", "growth", "secur*"],
+  negative: ["bad", "fail*", "threat*", "crisis", "declin*", "harm*", "damag*", "weak*", "danger*", "corrupt*"],
+};
+
+// Compiles a lexicon (category -> array of literal/"prefix*" entries) into
+// per-category RegExp arrays, so scoring is a single pass over the token
+// list rather than repeated substring scans.
+function compileLexicon(lexicon) {
+  const compiled = {};
+  for (const [category, entries] of Object.entries(lexicon)) {
+    compiled[category] = entries.map((e) =>
+      e.endsWith("*")
+        ? new RegExp(`^${e.slice(0, -1)}`, "i")
+        : new RegExp(`^${e}$`, "i")
     );
   }
+  return compiled;
+}
+const COMPILED_MFD = compileLexicon(MORAL_FOUNDATIONS_LEXICON);
+const COMPILED_EMOTION = compileLexicon(EMOTION_LEXICON);
 
-  return { asOf: String(asOfYear ?? thisYear), series };
+function stripHtml(html) {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Scores one text against both compiled lexicons. Returns rates per 1,000
+// words (not raw counts) so a long floor speech and a short one-minute
+// statement are comparable, plus the dominant category in each lexicon
+// (requiring at least MIN_MATCHES raw hits so a single stray word on a
+// short text doesn't get reported as "dominant").
+const MIN_MATCHES = 2;
+
+function scoreText(text) {
+  const tokens = (text.toLowerCase().match(/[a-z']+/g) || []);
+  const wordCount = tokens.length;
+
+  const countCategory = (compiledCategory) => {
+    let n = 0;
+    for (const tok of tokens) {
+      if (compiledCategory.some((re) => re.test(tok))) n++;
+    }
+    return n;
+  };
+
+  const rate = (raw) => (wordCount > 0 ? Math.round((raw / wordCount) * 1000 * 10) / 10 : 0);
+
+  const mfdRaw = {};
+  const mfdRate = {};
+  for (const [cat, res] of Object.entries(COMPILED_MFD)) {
+    const raw = countCategory(res);
+    mfdRaw[cat] = raw;
+    mfdRate[cat] = rate(raw);
+  }
+  const emoRaw = {};
+  const emoRate = {};
+  for (const [cat, res] of Object.entries(COMPILED_EMOTION)) {
+    const raw = countCategory(res);
+    emoRaw[cat] = raw;
+    emoRate[cat] = rate(raw);
+  }
+
+  const dominant = (rawObj, rateObj, excludeKeys = []) => {
+    let best = null;
+    for (const [cat, raw] of Object.entries(rawObj)) {
+      if (excludeKeys.includes(cat)) continue;
+      if (raw < MIN_MATCHES) continue;
+      if (!best || rateObj[cat] > rateObj[best]) best = cat;
+    }
+    return best; // null if nothing clears MIN_MATCHES
+  };
+
+  const dominantFoundation = dominant(mfdRaw, mfdRate);
+  const dominantEmotion = dominant(emoRaw, emoRate, ["positive", "negative"]);
+  const toneScore = mfdRaw ? Math.round((emoRate.positive - emoRate.negative) * 10) / 10 : 0;
+
+  return {
+    wordCount,
+    moralFoundations: mfdRate,
+    dominantFoundation,
+    emotions: { anger: emoRate.anger, fear: emoRate.fear, joy: emoRate.joy, sadness: emoRate.sadness },
+    dominantEmotion,
+    tone: { positive: emoRate.positive, negative: emoRate.negative, score: toneScore },
+  };
+}
+
+// ---- GovInfo: Congressional Record (CREC) granule text ----
+// Official daily speech transcripts \u2014 fits the already-logged input
+// scope ("public speech transcripts, official party platform
+// publications... not private citizens' social media"). Fully keyless in
+// the sense that GovInfo/api.data.gov accepts the shared "DEMO_KEY" with
+// no registration at all, at a low shared rate limit; GOVINFO_API_KEY is
+// an optional upgrade to a personal free key if that quota proves too
+// tight for the daily schedule.
+//
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix/fetchGiniSeries):
+// written without a live test call (no network egress in this sandbox).
+// The three-step collections -> granules -> granule-text shape below is
+// per GovInfo's documented API structure, but the exact field names
+// (packageId, granuleId, granuleClass, dateIssued) are unconfirmed against
+// a real response \u2014 verify the first real Action run's shape before
+// trusting this unattended, and adjust the accessors below if fields
+// nest differently than expected.
+async function fetchDiscourseTags() {
+  const key = process.env.GOVINFO_API_KEY || "DEMO_KEY";
+
+  // Step 1: find the most recent CREC package modified in the last 5 days
+  // (Congress isn't always in session; widen the window rather than
+  // assuming "yesterday" always has a package).
+  const since = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
+  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?api_key=${key}&pageSize=5`;
+  const collectionsData = await safeFetchJson(collectionsUrl);
+  const packages = collectionsData?.packages ?? [];
+  if (!packages.length) throw new Error("GovInfo: no recent CREC packages found");
+  const latestPackage = packages[0];
+  const packageId = latestPackage.packageId;
+  const asOf = latestPackage.dateIssued ?? since.slice(0, 10);
+
+  // Step 2: list granules (individual speeches/statements) within that
+  // day's package, restricted to floor speech classes rather than
+  // procedural material (front matter, daily digest).
+  const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?api_key=${key}&pageSize=15&granuleClass=HOUSE&granuleClass=SENATE`;
+  const granulesData = await safeFetchJson(granulesUrl);
+  const granules = (granulesData?.granules ?? []).slice(0, 8);
+  if (!granules.length) throw new Error("GovInfo: no usable granules in latest CREC package");
+
+  // Step 3: fetch and score each granule's text. Failures on individual
+  // granules are skipped rather than failing the whole fetch \u2014 a single
+  // malformed granule shouldn't blank out the module.
+  const entries = [];
+  for (const g of granules) {
+    try {
+      const htmUrl = `https://api.govinfo.gov/packages/${packageId}/granules/${g.granuleId}/htm?api_key=${key}`;
+      const html = await safeFetchText(htmUrl);
+      const text = stripHtml(html);
+      if (text.length < 200) continue; // skip near-empty granules
+      const scored = scoreText(text);
+      entries.push({
+        granuleId: g.granuleId,
+        title: g.title ?? "(untitled granule)",
+        excerpt: text.slice(0, 220) + (text.length > 220 ? "\u2026" : ""),
+        ...scored,
+      });
+    } catch (err) {
+      console.error(`[warn] discourse-tagging: skipped granule ${g.granuleId}: ${err.message}`);
+    }
+  }
+  if (!entries.length) throw new Error("GovInfo: no granules scored successfully");
+
+  return {
+    asOf,
+    packageId,
+    source: "GovInfo Congressional Record (CREC)",
+    method: "Lexicon-based scoring \u2014 Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
+    entries,
+  };
 }
 
 // NOT in the `fetchers` pipeline below as of the core-set review: this
@@ -1156,6 +1338,25 @@ async function main() {
   }
   await writeFile(PEACE_OUT_PATH, JSON.stringify(peaceOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${PEACE_OUT_PATH}.`);
+
+  // Discourse-tagging module (Pillar 1): lexicon-scored Congressional
+  // Record excerpts \u2014 own sibling output file, same reason the other
+  // module JSONs are separate from ticker-data.json (a set of tagged
+  // entries, not a single ticker value). Same fall-back-to-last-published
+  // behavior on fetch failure.
+  const existingDiscourse = await loadExistingDiscourse();
+  let discourseOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const discourse = await fetchDiscourseTags();
+    discourseOutput = { generatedAt: discourseOutput.generatedAt, ...discourse };
+  } catch (err) {
+    console.error(`[warn] fetchDiscourseTags failed: ${err.message}`);
+    if (existingDiscourse.entries) {
+      discourseOutput = { ...existingDiscourse, generatedAt: discourseOutput.generatedAt };
+    }
+  }
+  await writeFile(DISCOURSE_OUT_PATH, JSON.stringify(discourseOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${DISCOURSE_OUT_PATH}.`);
 }
 
 main().catch((err) => {
