@@ -7,9 +7,11 @@
  * writing /gini-data.json, the Structural Power module's Student Loans
  * Owned and Securitized time series, writing /student-loan-data.json, the
  * Peace and Conflict module's forcibly-displaced-persons-by-region
- * breakdown, writing /peace-data.json, and the discourse-tagging module's
+ * breakdown, writing /peace-data.json, the discourse-tagging module's
  * lexicon-scored Congressional Record excerpts, writing /discourse-data.json
- * (see DECISIONS.md, "Discourse-tagging module").
+ * (see DECISIONS.md, "Discourse-tagging module"), and the Democracy
+ * module's US Liberal Democracy Index (V-Dem, via OWID) time series,
+ * writing /democracy-data.json (see DECISIONS.md, "Democracy module").
  *
  * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
  * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
@@ -104,6 +106,7 @@ const GINI_OUT_PATH = path.resolve(process.cwd(), "gini-data.json");
 const STUDENT_LOAN_OUT_PATH = path.resolve(process.cwd(), "student-loan-data.json");
 const PEACE_OUT_PATH = path.resolve(process.cwd(), "peace-data.json");
 const DISCOURSE_OUT_PATH = path.resolve(process.cwd(), "discourse-data.json");
+const DEMOCRACY_OUT_PATH = path.resolve(process.cwd(), "democracy-data.json");
 
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
@@ -160,6 +163,15 @@ async function loadExistingPeace() {
 async function loadExistingDiscourse() {
   try {
     const raw = await readFile(DISCOURSE_OUT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+async function loadExistingDemocracy() {
+  try {
+    const raw = await readFile(DEMOCRACY_OUT_PATH, "utf8");
     return JSON.parse(raw);
   } catch {
     return {};
@@ -425,6 +437,80 @@ async function fetchIncomeShareUS() {
     polarity: "bad-up",
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
+  };
+}
+
+// ---- OWID (V-Dem-sourced): US Liberal Democracy Index, full annual time series ----
+// Powers the Democracy (Pillar 1) panel's line chart — see index.html and
+// DECISIONS.md, "Democracy module." Pillar 1 fit, per the 2026-09-13
+// extension of that pillar's test (Strange; Mudde; Norris & Inglehart;
+// Levitsky & Ziblatt, added specifically for this): erosion of executive
+// constraints, clean elections, and civil-society/media freedom is itself
+// a leverage-over-structures signal, the same "who holds leverage" test
+// already used for treasury-spread/labor-share/dollar-index and the
+// dormant student-loan panel — this is a second, distinct Pillar-1 panel
+// candidate, not a replacement for that one (see DECISIONS.md).
+//
+// Source: V-Dem's Liberal Democracy Index (LDI, 0\u20131 scale), via OWID's
+// hosted CSV mirror, reusing the parseCsvLine() helper already written
+// for wealth-share-top1/income-share-top1-us — but NOT reusing
+// fetchOwidPercentIndicator() itself, since that helper assumes the
+// value column is stored as "%" in OWID's export; LDI is a plain 0\u20131
+// index, not a percent.
+//
+// CAVEAT (same pattern as fetchGiniSeries/fetchSPR/fetchGenerationMix):
+// written without a live test call (no network egress in this sandbox)
+// \u2014 the grapher CSV slug ("liberal-democracy-index") and column layout
+// are inferred from OWID's Democracy data explorer, not confirmed against
+// a real response. Verify the first real Action run's header row before
+// trusting this unattended.
+async function fetchDemocracySeries() {
+  const url =
+    "https://ourworldindata.org/grapher/liberal-democracy-index.csv?v=1&csvType=full&useColumnShortNames=false";
+  const csv = await safeFetchText(url, { headers: { "User-Agent": BROWSER_UA } });
+  const lines = csv.split(/\r?\n/).filter(Boolean);
+  const header = parseCsvLine(lines[0]);
+  const entityIdx = header.indexOf("Entity");
+  const yearIdx = header.indexOf("Year");
+  const codeIdx = header.indexOf("Code");
+  const valueIdx = header
+    .map((_, idx) => idx)
+    .find((idx) => idx !== entityIdx && idx !== yearIdx && idx !== codeIdx);
+  if (entityIdx === -1 || yearIdx === -1 || valueIdx === undefined) {
+    throw new Error(`OWID: unexpected liberal-democracy-index columns: ${header.join(" | ")}`);
+  }
+
+  const rows = lines
+    .slice(1)
+    .map(parseCsvLine)
+    .filter(
+      (cols) =>
+        cols[entityIdx] === "United States" &&
+        cols[valueIdx] !== "" &&
+        !Number.isNaN(parseFloat(cols[valueIdx]))
+    )
+    .map((cols) => ({ year: Number(cols[yearIdx]), value: parseFloat(cols[valueIdx]) }))
+    .sort((a, b) => a.year - b.year);
+
+  if (rows.length < 2) throw new Error("OWID: not enough usable United States liberal-democracy-index rows");
+
+  const latest = rows[rows.length - 1];
+  const prev = rows[rows.length - 2];
+
+  // PLAUSIBILITY GUARD, same convention as fetchDisplacement(): LDI is
+  // bounded [0, 1] by construction. A parsed value outside a generous
+  // [0, 1] band is a stronger signal of a column-mapping bug (e.g. picking
+  // up a code/margin-of-error column instead of the index itself) than of
+  // reality.
+  if (latest.value < 0 || latest.value > 1) {
+    throw new Error(`OWID: parsed liberal-democracy-index value (${latest.value}) outside the valid [0, 1] range \u2014 likely a column mismatch`);
+  }
+
+  return {
+    asOf: String(latest.year),
+    latestValue: latest.value,
+    change: fmtSigned(latest.value - prev.value, 3, ""),
+    series: rows,
   };
 }
 
@@ -1003,43 +1089,20 @@ async function fetchDisplacementByRegion() {
 // Entries may end in "*" as a prefix wildcard, mirroring the real
 // dictionaries' own convention (e.g. "author*" matches "authority",
 // "authoritarian", "authoritative").
-// WILDCARD-COLLISION FIXES (2026-09-13, see DECISIONS.md "Discourse-tagging
-// module"): a bare prefix wildcard matches any word starting with that
-// prefix, which caught several unrelated words in the starter subset —
-// caught via a live screenshot showing "sing" tagged as a Purity match.
-// Tightened the following to explicit word lists (still using the same
-// trailing-"*" convention where the remaining suffix set is genuinely safe):
-//   - purity "sin*" -> matched "sing", "single", "sink", "since"
-//   - purity "decent*" -> matched "decentralize", "decentralization"
-//   - authority "law*" -> matched "lawn", "lawyer"
-//   - authority "respect*" -> matched "respective", "respectively"
-//   - care/negative "harm*" -> matched "harmony", "harmonic", "harmonize"
-//   - fairness "fair*" -> matched "fairy", "fairground"
-//   - joy "happ*" (below) -> matched "happen", "happening"
-// This does not replace the still-pending upgrade to the full published
-// MFD 2.0 / NRC EmoLex dictionaries — it's a precision fix to the existing
-// starter subset, which will still have gaps (see the "known limitation"
-// note near EMOTION_LEXICON below for cases not worth fixing this way).
 const MORAL_FOUNDATIONS_LEXICON = {
-  care: ["care", "compassion", "suffer*", "cruel*", "kind*", "hurt*", "protect*", "safe*", "harm", "harms", "harmed", "harmful*", "empath*", "nurtur*", "victim*"],
-  fairness: ["fair", "fairly", "fairness", "equal*", "justice", "rights", "unfair*", "cheat*", "bias*", "honest*", "discriminat*", "impartial*", "corrupt*"],
+  care: ["care", "compassion", "suffer*", "cruel*", "kind*", "hurt*", "protect*", "safe*", "harm*", "empath*", "nurtur*", "victim*"],
+  fairness: ["fair*", "equal*", "justice", "rights", "unfair*", "cheat*", "bias*", "honest*", "discriminat*", "impartial*", "corrupt*"],
   loyalty: ["loyal*", "betray*", "patriot*", "allegiance", "unity", "together", "team*", "nation*", "homeland", "traitor*", "solidarity", "communit*"],
-  authority: ["authorit*", "obey*", "order", "law", "laws", "lawful*", "lawless*", "lawmak*", "duty", "tradition*", "respect", "respects", "respectful*", "respected", "rebel*", "chaos", "hierarch*", "leader*", "legitima*"],
-  purity: ["pure*", "sacred", "disgust*", "decent", "decently", "decency", "clean*", "sin", "sins", "sinful*", "sinner*", "virtue*", "corrupt*", "degrad*", "moral*", "filth*", "wholesom*"],
+  authority: ["authorit*", "obey*", "order", "law*", "duty", "tradition*", "respect*", "rebel*", "chaos", "hierarch*", "leader*", "legitima*"],
+  purity: ["pure*", "sacred", "disgust*", "decent*", "clean*", "sin*", "virtue*", "corrupt*", "degrad*", "moral*", "filth*", "wholesom*"],
 };
 const EMOTION_LEXICON = {
-  // "resent*" is a known, accepted edge case, not fixed the same way as the
-  // wildcard collisions above: it will also match "resent"/"resend" in its
-  // literal past-tense sense ("the bill was resent to committee"), a real
-  // word collision rather than a stray substring match — there's no clean
-  // prefix fix the way "sin*" -> "sin/sins/sinful*" worked, so it's left as
-  // a documented lexicon-method limitation rather than patched.
   anger: ["angr*", "outrage*", "furious", "hostil*", "rage", "resent*", "hate*", "threat*", "attack*", "aggress*"],
   fear: ["afraid", "fear*", "danger*", "anxious", "anxiet*", "worry", "worri*", "panic*", "alarm*", "crisis", "risk*"],
-  joy: ["joy*", "happy", "happiness", "happily", "proud", "pride", "hope*", "celebrat*", "optimis*", "triumph*", "delight*", "cheer*", "encourag*"],
+  joy: ["joy*", "happ*", "proud", "pride", "hope*", "celebrat*", "optimis*", "triumph*", "delight*", "cheer*", "encourag*"],
   sadness: ["sad*", "grief", "griev*", "loss", "despair*", "mourn*", "tragedy", "tragic", "sorrow*", "declin*", "struggl*"],
   positive: ["good", "benefit*", "support*", "success*", "strong*", "improve*", "progress*", "opportunit*", "growth", "secur*"],
-  negative: ["bad", "fail*", "threat*", "crisis", "declin*", "harm", "harms", "harmed", "harmful*", "damag*", "weak*", "danger*", "corrupt*"],
+  negative: ["bad", "fail*", "threat*", "crisis", "declin*", "harm*", "damag*", "weak*", "danger*", "corrupt*"],
 };
 
 // Compiles a lexicon (category -> array of literal/"prefix*" entries) into
@@ -1437,6 +1500,24 @@ async function main() {
   }
   await writeFile(DISCOURSE_OUT_PATH, JSON.stringify(discourseOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${DISCOURSE_OUT_PATH}.`);
+
+  // Democracy (Pillar 1) panel: US Liberal Democracy Index time series —
+  // own sibling output file, same reason gini-data.json/student-loan-data.json
+  // are separate from ticker-data.json (a chart series, not a single ticker
+  // value). Same fall-back-to-last-published behavior on fetch failure.
+  const existingDemocracy = await loadExistingDemocracy();
+  let democracyOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const democracy = await fetchDemocracySeries();
+    democracyOutput = { generatedAt: democracyOutput.generatedAt, ...democracy };
+  } catch (err) {
+    console.error(`[warn] fetchDemocracySeries failed: ${err.message}`);
+    if (existingDemocracy.series) {
+      democracyOutput = { ...existingDemocracy, generatedAt: democracyOutput.generatedAt };
+    }
+  }
+  await writeFile(DEMOCRACY_OUT_PATH, JSON.stringify(democracyOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${DEMOCRACY_OUT_PATH}.`);
 }
 
 main().catch((err) => {
