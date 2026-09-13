@@ -26,16 +26,12 @@ jobs:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
-          # Optional \u2014 fetchDiscourseTags() falls back to GovInfo's shared,
-          # unregistered DEMO_KEY if this isn't set. See DECISIONS.md,
-          # "Discourse-tagging module".
-          GOVINFO_API_KEY: ${{ secrets.GOVINFO_API_KEY }}
         run: node scripts/fetch-ticker-data.mjs
 
       - name: Commit updated ticker and energy data
         run: |
           git config user.name "ticker-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add ticker-data.json energy-data.json gini-data.json student-loan-data.json peace-data.json discourse-data.json
+          git add ticker-data.json energy-data.json gini-data.json student-loan-data.json peace-data.json discourse-data.json democracy-data.json
           git diff --cached --quiet || git commit -m "chore: refresh ticker and energy data"
           git push
