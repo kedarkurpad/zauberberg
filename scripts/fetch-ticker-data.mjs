@@ -85,6 +85,13 @@
  *     are a small illustrative STARTER SUBSET, not the full published MFD
  *     2.0 / NRC EmoLex files \u2014 swap in the full dictionaries (both free
  *     for academic use) before treating this as a real research instrument.
+ *     "Vibe of the Congress" redesign (2026-09-12): rather than pulling
+ *     up to 8 granules from one day, fetchDiscourseTags() now walks
+ *     backward through CREC packages one day at a time and keeps at most
+ *     ONE threshold-clearing entry per day, targeting a trailing 4 \u2014
+ *     days with nothing that clears are skipped (not padded with a
+ *     "below threshold" filler card), so the loop falls back to the
+ *     nearest earlier qualifying day instead. See DECISIONS.md.
  *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
  *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
  *     a single-point annual read with no prior-year diff — so neither
@@ -1135,85 +1142,128 @@ function scoreText(text) {
 // floor speech from procedural material are still not fully confirmed,
 // which is why isFloorSpeech() below falls back gracefully rather than
 // hard-filtering on an assumed field name.
+//
+// "VIBE OF THE CONGRESS" REDESIGN (2026-09-12, by request): previously
+// this pulled up to 8 granules from a single latest day's package,
+// including ones that scored no dominant foundation/emotion at all (the
+// UI rendered those as "no category cleared" filler cards). Now it walks
+// backward day-by-day (one CREC package per day) and keeps AT MOST ONE
+// threshold-clearing entry per day, targeting a trailing set of 4. A day
+// with nothing that clears the MIN_MATCHES threshold is skipped entirely
+// \u2014 by explicit request, the loop falls back to the nearest earlier
+// qualifying day rather than padding the result with a filler card or
+// stopping short, so the 4 returned entries can span more than 4
+// calendar days on a slow week. DISCOURSE_LOOKBACK_DAYS bounds how far
+// back it will look before giving up.
+const DISCOURSE_TARGET_ENTRIES = 4;
+const DISCOURSE_LOOKBACK_DAYS = 21; // generous \u2014 Congress isn't always in session, and this also covers days whose granules don't clear the match threshold
+
 async function fetchDiscourseTags() {
   const key = process.env.GOVINFO_API_KEY || "DEMO_KEY";
 
-  // Step 1: find the most recent CREC package modified in the last 5 days
-  // (Congress isn't always in session; widen the window rather than
-  // assuming "yesterday" always has a package).
+  // Step 1: list CREC packages (one per sitting day) modified within the
+  // lookback window.
   //
   // FIX (2026-09-12, after the first real run returned HTTP 400): the
   // collections endpoint requires offsetMark (GovInfo deprecated the plain
   // offset param), starting at "*" per every documented example \u2014 the
   // original request omitted it entirely. Confirmed against
   // https://github.com/usgpo/api's README and sample collections response.
-  const since = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
-  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?offsetMark=*&pageSize=5&api_key=${key}`;
+  //
+  // UNVERIFIED (new in this redesign): the original single-package logic
+  // only ever read packages[0], so this file has never actually observed
+  // whether the collections response is ordered most-recent-first. That
+  // assumption carries forward here \u2014 verify against the first real
+  // multi-day run's [diag] log below and reverse the array if packages
+  // turn out to be oldest-first instead.
+  const since = new Date(Date.now() - DISCOURSE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
+  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?offsetMark=*&pageSize=${DISCOURSE_LOOKBACK_DAYS}&api_key=${key}`;
   const collectionsData = await safeFetchJson(collectionsUrl);
   const packages = collectionsData?.packages ?? [];
   if (!packages.length) throw new Error("GovInfo: no recent CREC packages found");
-  const latestPackage = packages[0];
-  const packageId = latestPackage.packageId;
-  // FIX: the collections response only carries packageId / lastModified /
-  // packageLink \u2014 no dateIssued field (that was a mistaken assumption in
-  // the original write-up). CREC packageIds are always "CREC-YYYY-MM-DD",
-  // so parse the date straight out of the id instead.
-  const asOf = packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1] ?? since.slice(0, 10);
+  console.log("[diag] /collections/CREC sample package:", JSON.stringify(packages[0] ?? null));
+  console.log("[diag] /collections/CREC package count:", packages.length);
 
-  // Step 2: list granules (individual speeches/statements) within that
-  // day's package.
-  //
-  // FIX: dropped the granuleClass=HOUSE&granuleClass=SENATE query filter
-  // from the original write-up \u2014 that's not a documented parameter for
-  // this endpoint and was likely contributing its own 400 once the
-  // collections call above got fixed. Fetch unfiltered instead and filter
-  // client-side on whatever class-like field the response actually
-  // carries (see the filter below), same offsetMark requirement as step 1.
-  const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
-  const granulesData = await safeFetchJson(granulesUrl);
-  const allGranules = granulesData?.granules ?? [];
-  if (!allGranules.length) throw new Error("GovInfo: no usable granules in latest CREC package");
-
-  // Client-side filter: prefer granules whose class/title marks them as
-  // House or Senate floor speech rather than procedural front matter
-  // (Daily Digest, front matter, extensions). Falls back to "take
-  // whatever's there" if no granule exposes a class-like field, since the
-  // exact field name is unconfirmed against a live response.
   const isFloorSpeech = (g) => {
     const cls = (g.granuleClass ?? g.docClass ?? "").toUpperCase();
     if (cls) return cls === "HOUSE" || cls === "SENATE";
     return !/daily digest|front matter/i.test(g.title ?? "");
   };
-  const granules = (allGranules.filter(isFloorSpeech).length ? allGranules.filter(isFloorSpeech) : allGranules).slice(0, 8);
 
-  // Step 3: fetch and score each granule's text. Failures on individual
-  // granules are skipped rather than failing the whole fetch \u2014 a single
-  // malformed granule shouldn't blank out the module.
   const entries = [];
-  for (const g of granules) {
+  let daysChecked = 0;
+
+  // Walk packages most-recent-first (see UNVERIFIED note above), one CREC
+  // package per calendar day, stopping once DISCOURSE_TARGET_ENTRIES
+  // qualifying entries have been collected or the lookback window runs out.
+  for (const pkg of packages) {
+    if (entries.length >= DISCOURSE_TARGET_ENTRIES) break;
+    daysChecked++;
+
+    const packageId = pkg.packageId;
+    // FIX (carried over): the collections response only carries
+    // packageId / lastModified / packageLink \u2014 no dateIssued field.
+    // CREC packageIds are always "CREC-YYYY-MM-DD".
+    const dayAsOf = packageId?.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1];
+    if (!packageId || !dayAsOf) continue;
+
     try {
-      const htmUrl = `https://api.govinfo.gov/packages/${packageId}/granules/${g.granuleId}/htm?api_key=${key}`;
-      const html = await safeFetchText(htmUrl);
-      const text = stripHtml(html);
-      if (text.length < 200) continue; // skip near-empty granules
-      const scored = scoreText(text);
-      entries.push({
-        granuleId: g.granuleId,
-        title: g.title ?? "(untitled granule)",
-        excerpt: text.slice(0, 220) + (text.length > 220 ? "\u2026" : ""),
-        ...scored,
-      });
+      // Step 2: list this day's granules (individual speeches/statements).
+      //
+      // FIX (carried over): dropped the granuleClass=HOUSE&granuleClass=
+      // SENATE query filter \u2014 not a documented parameter for this
+      // endpoint. Fetch unfiltered and filter client-side instead.
+      const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
+      const granulesData = await safeFetchJson(granulesUrl);
+      const allGranules = granulesData?.granules ?? [];
+      if (!allGranules.length) continue; // no granules this day \u2014 skip, don't count toward the 4
+
+      const candidates = (allGranules.filter(isFloorSpeech).length ? allGranules.filter(isFloorSpeech) : allGranules).slice(0, 10);
+
+      // Step 3: score candidates in order and take the FIRST one that
+      // actually clears the moral-foundation/emotion match threshold \u2014
+      // one representative speech per qualifying day. If NONE of this
+      // day's candidates clear, the day is skipped entirely (not counted
+      // toward DISCOURSE_TARGET_ENTRIES), which is what lets the loop
+      // fall back to an earlier day per the request above.
+      for (const g of candidates) {
+        try {
+          const htmUrl = `https://api.govinfo.gov/packages/${packageId}/granules/${g.granuleId}/htm?api_key=${key}`;
+          const html = await safeFetchText(htmUrl);
+          const text = stripHtml(html);
+          if (text.length < 200) continue; // skip near-empty granules
+          const scored = scoreText(text);
+          if (!scored.dominantFoundation && !scored.dominantEmotion) continue; // doesn't clear MIN_MATCHES \u2014 keep looking within this day
+          entries.push({
+            date: dayAsOf,
+            packageId,
+            granuleId: g.granuleId,
+            title: g.title ?? "(untitled granule)",
+            excerpt: text.slice(0, 220) + (text.length > 220 ? "\u2026" : ""),
+            ...scored,
+          });
+          break; // one qualifying entry per day, then move to the next day
+        } catch (err) {
+          console.error(`[warn] discourse-tagging: skipped granule ${g.granuleId}: ${err.message}`);
+        }
+      }
     } catch (err) {
-      console.error(`[warn] discourse-tagging: skipped granule ${g.granuleId}: ${err.message}`);
+      console.error(`[warn] discourse-tagging: skipped package ${packageId}: ${err.message}`);
     }
   }
-  if (!entries.length) throw new Error("GovInfo: no granules scored successfully");
+
+  if (!entries.length) {
+    throw new Error(
+      `GovInfo: no day within the ${DISCOURSE_LOOKBACK_DAYS}-day lookback produced a threshold-clearing granule (checked ${daysChecked} package(s))`
+    );
+  }
 
   return {
-    asOf,
-    packageId,
+    asOf: entries[0].date,
+    daysChecked,
+    targetEntries: DISCOURSE_TARGET_ENTRIES,
     source: "GovInfo Congressional Record (CREC)",
-    method: "Lexicon-based scoring \u2014 Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
+    method: "Lexicon-based scoring \u2014 Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs). One threshold-clearing entry per day, trailing days, falling back to the nearest earlier qualifying day when a day has nothing that clears.",
     entries,
   };
 }
