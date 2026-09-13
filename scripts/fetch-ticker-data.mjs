@@ -8,8 +8,9 @@
  * Owned and Securitized time series, writing /student-loan-data.json, the
  * Peace and Conflict module's forcibly-displaced-persons-by-region
  * breakdown, writing /peace-data.json, the discourse-tagging module's
- * lexicon-scored Congressional Record excerpts, writing /discourse-data.json
- * (see DECISIONS.md, "Discourse-tagging module"), and the Democracy
+ * lexicon-scored Congressional Hearings (CHRG) excerpts, writing
+ * /discourse-data.json (see DECISIONS.md, "Discourse-tagging module"), and
+ * the Democracy
  * module's US Liberal Democracy Index (V-Dem, via OWID) time series,
  * writing /democracy-data.json (see DECISIONS.md, "Democracy module").
  *
@@ -72,9 +73,12 @@
  *     response (no network egress in this sandbox); see DECISIONS.md.
  *   - Discourse-tagging module (separate output, discourse-data.json, not
  *     the ticker): fetchDiscourseTags(), sourced from the GovInfo
- *     Congressional Record (CREC) API \u2014 official daily speech transcripts,
- *     fitting the already-logged "public speech transcripts... not private
- *     citizens' social media" input scope. Scored with a lexicon-based
+ *     Congressional Hearings (CHRG) API \u2014 official hearing transcripts
+ *     (member Q&A + witness testimony), swapped in 2026-09-13 from the
+ *     Congressional Record (CREC) for its much denser substantive
+ *     rhetoric per granule \u2014 fitting the already-logged "public speech
+ *     transcripts... not private citizens' social media" input scope.
+ *     Scored with a lexicon-based
  *     method (Moral Foundations Dictionary + an NRC-style emotion lexicon)
  *     rather than an LLM call \u2014 chosen by request over both a paid
  *     Anthropic API call and a locally-run open model, on interpretability,
@@ -1138,12 +1142,29 @@ function stripHtml(html) {
 // (requiring at least MIN_MATCHES raw hits so a single stray word on a
 // short text doesn't get reported as "dominant").
 const MIN_MATCHES = 2;
-// "Vibe of the Congress" trailing-days parameters (see DECISIONS.md,
-// "Discourse-tagging module" \u2014 the 2026-09-13 redesign entry described
-// this walk-back as already implemented; it wasn't actually wired into
-// fetchDiscourseTags() until the fix below, which is what let
-// below-threshold placeholder cards reach the live page).
-const DISCOURSE_LOOKBACK_DAYS = 21;
+// "Vibe of the Congress" parameters (see DECISIONS.md, "Discourse-tagging
+// module"). SOURCE SWAP (2026-09-13, by request): this module now pulls
+// from GovInfo's Congressional Hearings collection (CHRG) instead of the
+// Congressional Record (CREC) \u2014 see the fetchDiscourseTags() header
+// comment for the full rationale (density of substantive rhetoric vs.
+// CREC's mostly-procedural daily granules).
+//
+// UNIT CHANGE: with CREC, "one entry per calendar day, walk back up to N
+// days" was a natural framing \u2014 there is exactly one CREC package per
+// legislative day. Hearings don't work that way: multiple committees can
+// hold hearings on the same date, and many days have none at all. So the
+// unit here is now "one entry per qualifying HEARING PACKAGE," walking
+// backward through the most recent packages regardless of date, not "one
+// per calendar day." DISCOURSE_LOOKBACK_DAYS is widened accordingly (180
+// vs. CREC's 21) because hearing transcripts are also typically finalized
+// and published on GovInfo weeks-to-months after the hearing itself
+// occurred (unlike CREC, which publishes same/next legislative day) \u2014 a
+// 21-day window would likely come up empty most runs. This trades
+// "trailing days" recency framing for "most recent available hearings,"
+// which may span a wider and less predictable date range than the old
+// CREC cards did; each card's date now reflects the hearing date, not
+// necessarily anything close to today.
+const DISCOURSE_LOOKBACK_DAYS = 180;
 const DISCOURSE_TARGET_COUNT = 4;
 
 function scoreText(text) {
@@ -1215,10 +1236,10 @@ function scoreText(text) {
 // DECISIONS.md, "Discourse-tagging module," the excerpt-context entry).
 // Falls back to a plain lead-in slice if no matched word can be located
 // (shouldn't happen for an entry that already cleared MIN_MATCHES, but
-// kept defensive). Congressional Record floor-speech text is a US
-// government work product, not subject to copyright, so quoting a window
-// of it verbatim is not a reproduction concern the way an external
-// copyrighted source would be.
+// kept defensive). Congressional hearing transcript text (like Congressional
+// Record floor-speech text before it) is a US government work product, not
+// subject to copyright, so quoting a window of it verbatim is not a
+// reproduction concern the way an external copyrighted source would be.
 function buildExcerpt(text, matchedWords, windowChars = 160) {
   const words = [...new Set((matchedWords || []).filter(Boolean))];
   let pos = -1;
@@ -1236,90 +1257,89 @@ function buildExcerpt(text, matchedWords, windowChars = 160) {
 }
 
 
-// Official daily speech transcripts \u2014 fits the already-logged input
-// scope ("public speech transcripts, official party platform
-// publications... not private citizens' social media"). Fully keyless in
-// the sense that GovInfo/api.data.gov accepts the shared "DEMO_KEY" with
-// no registration at all, at a low shared rate limit; GOVINFO_API_KEY is
-// an optional upgrade to a personal free key if that quota proves too
-// tight for the daily schedule.
+// SOURCE SWAP (2026-09-13, by request \u2014 see DECISIONS.md, "Discourse-
+// tagging module"): switched from the Congressional Record (CREC) to
+// GovInfo's Congressional Hearings collection (CHRG). Reason: a live
+// screenshot (2026-09-12) showed 3 of 4 footer cards landing on
+// "Mixed / below threshold," and the root cause traced to CREC's own
+// content mix, not a code bug \u2014 most CREC granules on any given day are
+// procedural boilerplate (chamber openers, the Pledge of Allegiance,
+// page headers) that never clears MIN_MATCHES; only a small fraction of
+// a day's granules are substantive floor rhetoric. Hearing transcripts
+// are structurally different: they're member Q&A and witness testimony
+// on live contested topics (immigration, border security, etc.), which
+// is exactly where moral/emotional lexicon hits concentrate \u2014 much
+// higher expected hit density per granule than CREC's daily digest mix.
+// Still an official GovInfo/GPO collection (same "US government work
+// product, not copyrighted" provenance as CREC), fits the already-logged
+// input scope ("public speech transcripts... not private citizens'
+// social media"), and reuses the same collections -> granules ->
+// granule-text API shape and DEMO_KEY access \u2014 so this is a data-source
+// swap, not an infrastructure rebuild.
 //
-// CAVEAT: the collections -> granules -> granule-text shape and required
-// params (offsetMark, pageSize) below were confirmed 2026-09-12 against
-// GPO's own API README and sample responses
-// (https://github.com/usgpo/api), after the first real run's HTTP 400
-// turned out to be a missing offsetMark param and a mistaken dateIssued
-// field read \u2014 see the inline FIX comments below for what changed. The
-// granule-list response's exact class/title fields for distinguishing
-// floor speech from procedural material are still not fully confirmed,
-// which is why isFloorSpeech() below falls back gracefully rather than
-// hard-filtering on an assumed field name.
-//
-// BUG FOUND AND FIXED (2026-09-14, caught via a live screenshot showing
-// three of four footer cards as "Mixed / below threshold" placeholders):
-// DECISIONS.md's 2026-09-13 "Vibe of the Congress" entry describes this
-// function as already walking backward through days and skipping any day
-// with nothing that clears MIN_MATCHES \u2014 but the function actually
-// shipped only pulled granules from a single most-recent package and
-// pushed every one of them regardless of whether anything qualified. That
-// mismatch (documented vs. actual behavior) is exactly what produced the
-// placeholder cards. This rewrite is the walk-back the docs already
-// claimed: it fetches a multi-day window of CREC packages, scores every
-// floor-speech candidate within each day, keeps only that day's single
-// strongest QUALIFYING granule, and skips the day entirely (moving to the
-// next-oldest package) if nothing clears threshold \u2014 so a "below
-// threshold" card should no longer be constructible from this function's
-// output at all.
+// STRUCTURAL DIFFERENCE FROM CREC (see the DISCOURSE_LOOKBACK_DAYS
+// comment above): CHRG packageIds (e.g. "CHRG-114jhrg94577") do NOT embed
+// a date the way CREC packageIds do ("CREC-2026-09-10") \u2014 confirmed
+// against GovInfo's own documented CHRG package shape. So this fetcher
+// makes one extra call per candidate package, packages/{id}/summary, to
+// read dateIssued/heldDates \u2014 CAVEAT: the summary endpoint's exact field
+// names for CHRG were read from a GovInfo-published example package
+// object, not a live test call in this sandbox; verify the first real
+// Action run's response shape before trusting this unattended, same
+// caveat convention as fetchSPR/fetchGenerationMix/fetchGiniSeries.
+// isFloorSpeech() (HOUSE/SENATE granuleClass) doesn't apply to hearings
+// (no such class distinction), so it's replaced with isSubstantive(), a
+// front-matter-title exclusion filter (index/appendix/cover material)
+// rather than a positive-match filter \u2014 hearing packages are mostly
+// substantive content already, unlike CREC's daily-digest-heavy mix.
 async function fetchDiscourseTags() {
   const key = process.env.GOVINFO_API_KEY || "DEMO_KEY";
 
-  // Fetch a wider window of packages up front (one call), then walk them
-  // day-by-day, instead of re-querying collections/CREC per candidate day
-  // \u2014 fewer requests against the shared DEMO_KEY's low rate limit.
+  // Fetch a wide window of hearing packages up front (one call), then
+  // walk them most-recent-first \u2014 fewer requests against the shared
+  // DEMO_KEY's low rate limit than re-querying per candidate.
   const since = new Date(Date.now() - DISCOURSE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
-  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?offsetMark=*&pageSize=${DISCOURSE_LOOKBACK_DAYS + 5}&api_key=${key}`;
+  const collectionsUrl = `https://api.govinfo.gov/collections/CHRG/${since}?offsetMark=*&pageSize=${DISCOURSE_TARGET_COUNT * 15}&api_key=${key}`;
   const collectionsData = await safeFetchJson(collectionsUrl);
   const packages = collectionsData?.packages ?? [];
-  if (!packages.length) throw new Error("GovInfo: no recent CREC packages found");
+  if (!packages.length) throw new Error("GovInfo: no recent CHRG packages found in the lookback window");
 
-  // Sort most-recent-first by the date embedded in packageId (CREC
-  // packageIds are always "CREC-YYYY-MM-DD") rather than trusting the
-  // collections response's own ordering, which the original write-up
-  // assumed without confirming \u2014 flagged as an unverified assumption in
-  // the 2026-09-13 entry; sorting here removes the need to trust it.
-  const sorted = [...packages]
-    .filter((p) => /CREC-\d{4}-\d{2}-\d{2}/.test(p.packageId ?? ""))
-    .sort((a, b) => b.packageId.localeCompare(a.packageId));
-
-  const isFloorSpeech = (g) => {
-    const cls = (g.granuleClass ?? g.docClass ?? "").toUpperCase();
-    if (cls) return cls === "HOUSE" || cls === "SENATE";
-    return !/daily digest|front matter/i.test(g.title ?? "");
-  };
+  // Trust the collections response's own ordering only as a starting
+  // point \u2014 confirmed per-package publish date below via a summary call,
+  // then re-sort on that, since (unlike CREC) packageId itself carries no
+  // date to sort on and lastModified reflects GovInfo processing time, not
+  // when the hearing was actually held.
+  const isSubstantive = (g) => !/front matter|index|appendix|cover|errata|table of contents/i.test(g.title ?? "");
 
   const entries = [];
-  const seenDates = new Set();
+  const seenPackages = new Set();
 
-  for (const pkg of sorted) {
+  for (const pkg of packages) {
     if (entries.length >= DISCOURSE_TARGET_COUNT) break;
     const packageId = pkg.packageId;
-    const date = packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1];
-    if (!date || seenDates.has(date)) continue;
-    seenDates.add(date);
+    if (!packageId || seenPackages.has(packageId)) continue;
+    seenPackages.add(packageId);
 
     try {
+      // One extra call vs. the CREC version: CHRG packageIds don't embed
+      // a date, so pull it from the package's own summary metadata.
+      const summaryUrl = `https://api.govinfo.gov/packages/${packageId}/summary?api_key=${key}`;
+      const summary = await safeFetchJson(summaryUrl);
+      const date = (summary?.heldDates?.[0] ?? summary?.dateIssued ?? "").slice(0, 10);
+      if (!date) continue; // can't place this hearing in time; skip rather than mislabel it
+
       const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
       const granulesData = await safeFetchJson(granulesUrl);
       const allGranules = granulesData?.granules ?? [];
-      if (!allGranules.length) continue; // no granules this day; try the next-oldest package
+      if (!allGranules.length) continue; // no granules for this hearing; try the next one
 
-      const floorSpeech = allGranules.filter(isFloorSpeech);
-      const candidates = (floorSpeech.length ? floorSpeech : allGranules).slice(0, 8);
+      const substantive = allGranules.filter(isSubstantive);
+      const candidates = (substantive.length ? substantive : allGranules).slice(0, 8);
 
-      // Score every candidate for the day, but keep only the single
-      // strongest QUALIFYING one (highest combined dominant-category
-      // rate) \u2014 a day contributes at most one card, same as the design
-      // DECISIONS.md already described.
+      // Score every candidate granule in this hearing, but keep only the
+      // single strongest QUALIFYING one (highest combined dominant-
+      // category rate) \u2014 one hearing contributes at most one card, same
+      // "keep the best, skip if nothing clears threshold" design as CREC.
       let best = null;
       for (const g of candidates) {
         try {
@@ -1340,7 +1360,7 @@ async function fetchDiscourseTags() {
         }
       }
 
-      if (!best) continue; // nothing this day cleared threshold; try the next-oldest package
+      if (!best) continue; // nothing in this hearing cleared threshold; try the next one
 
       const matchedWords = [
         ...(best.scored.dominantFoundation ? best.scored.matchedKeywords[best.scored.dominantFoundation] ?? [] : []),
@@ -1358,11 +1378,16 @@ async function fetchDiscourseTags() {
     }
   }
 
-  if (!entries.length) throw new Error("GovInfo: no qualifying granules found in the trailing lookback window");
+  if (!entries.length) throw new Error("GovInfo: no qualifying granules found across recent CHRG hearings in the lookback window");
+
+  // Most-recent-hearing-first, by actual held date \u2014 not collections-
+  // response order, which reflects GovInfo processing/modification time
+  // rather than when each hearing was held.
+  entries.sort((a, b) => b.date.localeCompare(a.date));
 
   return {
     asOf: entries[0]?.date ?? null,
-    source: "GovInfo Congressional Record (CREC)",
+    source: "GovInfo Congressional Hearings (CHRG)",
     method: "Lexicon-based scoring \u2014 Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
     entries,
   };
@@ -1556,9 +1581,9 @@ async function main() {
   try {
     const discourse = await fetchDiscourseTags();
     let entries = discourse.entries ?? [];
-    // Backfill (added 2026-09-14, by request): if the trailing-days
-    // walk-back still comes back short of DISCOURSE_TARGET_COUNT \u2014 e.g.
-    // GovInfo's lookback window ran out of qualifying days \u2014 top up with
+    // Backfill (added 2026-09-14, by request): if the walk-back still
+    // comes back short of DISCOURSE_TARGET_COUNT \u2014 e.g. GovInfo's lookback
+    // window ran out of qualifying hearings \u2014 top up with
     // the most recent previously-published entries not already included,
     // deduped by granuleId, instead of shipping fewer populated cards (the
     // "non-loading panels" the live screenshot showed).
@@ -1579,28 +1604,3 @@ async function main() {
     }
   }
   await writeFile(DISCOURSE_OUT_PATH, JSON.stringify(discourseOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${DISCOURSE_OUT_PATH}.`);
-
-  // Democracy (Pillar 1) panel: US Liberal Democracy Index time series —
-  // own sibling output file, same reason gini-data.json/student-loan-data.json
-  // are separate from ticker-data.json (a chart series, not a single ticker
-  // value). Same fall-back-to-last-published behavior on fetch failure.
-  const existingDemocracy = await loadExistingDemocracy();
-  let democracyOutput = { generatedAt: new Date().toISOString() };
-  try {
-    const democracy = await fetchDemocracySeries();
-    democracyOutput = { generatedAt: democracyOutput.generatedAt, ...democracy };
-  } catch (err) {
-    console.error(`[warn] fetchDemocracySeries failed: ${err.message}`);
-    if (existingDemocracy.series) {
-      democracyOutput = { ...existingDemocracy, generatedAt: democracyOutput.generatedAt };
-    }
-  }
-  await writeFile(DEMOCRACY_OUT_PATH, JSON.stringify(democracyOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${DEMOCRACY_OUT_PATH}.`);
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
