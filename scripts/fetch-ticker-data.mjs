@@ -1098,36 +1098,66 @@ function scoreText(text) {
 // an optional upgrade to a personal free key if that quota proves too
 // tight for the daily schedule.
 //
-// CAVEAT (same pattern as fetchSPR/fetchGenerationMix/fetchGiniSeries):
-// written without a live test call (no network egress in this sandbox).
-// The three-step collections -> granules -> granule-text shape below is
-// per GovInfo's documented API structure, but the exact field names
-// (packageId, granuleId, granuleClass, dateIssued) are unconfirmed against
-// a real response \u2014 verify the first real Action run's shape before
-// trusting this unattended, and adjust the accessors below if fields
-// nest differently than expected.
+// CAVEAT: the collections -> granules -> granule-text shape and required
+// params (offsetMark, pageSize) below were confirmed 2026-09-12 against
+// GPO's own API README and sample responses
+// (https://github.com/usgpo/api), after the first real run's HTTP 400
+// turned out to be a missing offsetMark param and a mistaken dateIssued
+// field read \u2014 see the inline FIX comments below for what changed. The
+// granule-list response's exact class/title fields for distinguishing
+// floor speech from procedural material are still not fully confirmed,
+// which is why isFloorSpeech() below falls back gracefully rather than
+// hard-filtering on an assumed field name.
 async function fetchDiscourseTags() {
   const key = process.env.GOVINFO_API_KEY || "DEMO_KEY";
 
   // Step 1: find the most recent CREC package modified in the last 5 days
   // (Congress isn't always in session; widen the window rather than
   // assuming "yesterday" always has a package).
+  //
+  // FIX (2026-09-12, after the first real run returned HTTP 400): the
+  // collections endpoint requires offsetMark (GovInfo deprecated the plain
+  // offset param), starting at "*" per every documented example \u2014 the
+  // original request omitted it entirely. Confirmed against
+  // https://github.com/usgpo/api's README and sample collections response.
   const since = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
-  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?api_key=${key}&pageSize=5`;
+  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?offsetMark=*&pageSize=5&api_key=${key}`;
   const collectionsData = await safeFetchJson(collectionsUrl);
   const packages = collectionsData?.packages ?? [];
   if (!packages.length) throw new Error("GovInfo: no recent CREC packages found");
   const latestPackage = packages[0];
   const packageId = latestPackage.packageId;
-  const asOf = latestPackage.dateIssued ?? since.slice(0, 10);
+  // FIX: the collections response only carries packageId / lastModified /
+  // packageLink \u2014 no dateIssued field (that was a mistaken assumption in
+  // the original write-up). CREC packageIds are always "CREC-YYYY-MM-DD",
+  // so parse the date straight out of the id instead.
+  const asOf = packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1] ?? since.slice(0, 10);
 
   // Step 2: list granules (individual speeches/statements) within that
-  // day's package, restricted to floor speech classes rather than
-  // procedural material (front matter, daily digest).
-  const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?api_key=${key}&pageSize=15&granuleClass=HOUSE&granuleClass=SENATE`;
+  // day's package.
+  //
+  // FIX: dropped the granuleClass=HOUSE&granuleClass=SENATE query filter
+  // from the original write-up \u2014 that's not a documented parameter for
+  // this endpoint and was likely contributing its own 400 once the
+  // collections call above got fixed. Fetch unfiltered instead and filter
+  // client-side on whatever class-like field the response actually
+  // carries (see the filter below), same offsetMark requirement as step 1.
+  const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
   const granulesData = await safeFetchJson(granulesUrl);
-  const granules = (granulesData?.granules ?? []).slice(0, 8);
-  if (!granules.length) throw new Error("GovInfo: no usable granules in latest CREC package");
+  const allGranules = granulesData?.granules ?? [];
+  if (!allGranules.length) throw new Error("GovInfo: no usable granules in latest CREC package");
+
+  // Client-side filter: prefer granules whose class/title marks them as
+  // House or Senate floor speech rather than procedural front matter
+  // (Daily Digest, front matter, extensions). Falls back to "take
+  // whatever's there" if no granule exposes a class-like field, since the
+  // exact field name is unconfirmed against a live response.
+  const isFloorSpeech = (g) => {
+    const cls = (g.granuleClass ?? g.docClass ?? "").toUpperCase();
+    if (cls) return cls === "HOUSE" || cls === "SENATE";
+    return !/daily digest|front matter/i.test(g.title ?? "");
+  };
+  const granules = (allGranules.filter(isFloorSpeech).length ? allGranules.filter(isFloorSpeech) : allGranules).slice(0, 8);
 
   // Step 3: fetch and score each granule's text. Failures on individual
   // granules are skipped rather than failing the whole fetch \u2014 a single
