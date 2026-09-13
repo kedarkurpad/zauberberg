@@ -276,31 +276,6 @@
     .ticker__group[aria-hidden="true"] { display: none; }
   }
 
-  /* Placeholder link row directly under the ticker — not sticky itself
-     (only the ticker bar above it pins), so it scrolls away normally.
-     Unwired for now, same convention as the topbar's disabled nav links
-     (Theory Notes / Methodology / About): aria-disabled + tabindex="-1"
-     so it isn't announced as an interactive control until it's real. */
-  .ticker__seeall {
-    display: flex;
-    justify-content: flex-end;
-    padding: 6px 24px;
-    background: var(--panel);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .ticker__seeall a {
-    font-size: 11px;
-    color: var(--text);
-    opacity: 0.45;
-    cursor: default;
-    white-space: nowrap;
-  }
-
-  .ticker__seeall a[aria-disabled="true"] {
-    pointer-events: none;
-  }
-
   /* ================= SKELETON BELOW TICKER ================= */
 
   .shell {
@@ -313,6 +288,16 @@
     border-radius: 2px;
     min-height: 200px;
     padding: 16px;
+    /* Grows to fill the module-section's stretched height (grid items
+       default to align-items: stretch, so all three columns already
+       match the tallest one) \u2014 without this, a short-content panel
+       (e.g. the Migration placeholder) stayed its own natural height
+       while its column stretched anyway, leaving the "See all" link
+       floating at an inconsistent height per column. See DECISIONS.md,
+       "Panel sizing: equal-height columns." */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Section headers ("Inequality" / "Migration" / "Climate") sit OUTSIDE
@@ -470,6 +455,21 @@
     display: block;
   }
 
+  /* ================= PEACE AND CONFLICT MODULE (Pillar 3) ================= */
+  /* Horizontal bar chart, one bar per UNHCR region of origin \u2014 a
+     cross-sectional snapshot (latest year only), not a time series, so a
+     bar rather than a line is the right shape here. This was documented
+     in DECISIONS.md as already built, but the actual index.html markup/
+     JS was missing entirely until this fix \u2014 see DECISIONS.md, "Peace
+     and Conflict panel: implemented the chart DECISIONS.md already
+     described." Colored ristra, the token already reserved for Pillar 3
+     on the ticker's forcibly-displaced indicator. */
+  .peace-chart svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
   /* ================= FOOTER ================= */
 
   .footer {
@@ -599,10 +599,6 @@
       <div class="ticker__track" id="tickerTrack"></div>
     </div>
   </div>
-  <div class="ticker__seeall">
-    <a role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">See all indicators →</a>
-  </div>
-
   <main class="shell">
     <div class="module-grid">
       <section class="module-section">
@@ -621,7 +617,13 @@
       <section class="module-section">
         <h2 class="module-section__title">Migration</h2>
         <div class="panel-placeholder">
-          <p class="panel-placeholder__note">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+          <div class="peace-module" id="peaceModule" aria-label="Forcibly displaced persons by region of origin, latest year">
+            <h3 class="energy-view__label">Forcibly displaced persons by region of origin (UNHCR, latest year)</h3>
+            <div class="peace-chart" id="peaceChart"></div>
+            <p class="energy-view__disclaimer" id="peaceDisclaimer">
+              Illustrative placeholder values (not live-fetched yet) — pending the scheduled pipeline's first run of <code>peace-data.json</code>.
+            </p>
+          </div>
         </div>
         <a class="module-section__seeall" role="link" aria-disabled="true" tabindex="-1" title="Not yet wired up">See all →</a>
       </section>
@@ -857,7 +859,21 @@
       const toneScore = `${score >= 0 ? "+" : "\u2212"}${Math.abs(score).toFixed(1)}`;
       const foundation = entry.dominantFoundation;
       const emotion = entry.dominantEmotion;
-      const cluster = foundation ? `${FOUNDATION_LABEL[foundation]}-salient` : "Mixed / below threshold";
+      // BUG FIX (found via live screenshot 2026-09-13): this previously
+      // checked `foundation` only, so an entry that qualified via emotion
+      // alone (no dominant moral foundation) rendered as "Mixed / below
+      // threshold" \u2014 self-contradictory, since fetchDiscourseTags()
+      // only ever pushes an entry when dominantFoundation OR
+      // dominantEmotion clears MIN_MATCHES. "Below threshold" cards
+      // should no longer be reachable from live data at all post the
+      // "Vibe of the Congress" redesign; this fallback covers the
+      // foundation-absent/emotion-present case correctly instead of
+      // mislabeling it. See DECISIONS.md.
+      const cluster = foundation
+        ? `${FOUNDATION_LABEL[foundation]}-salient`
+        : emotion
+        ? `${EMOTION_LABEL[emotion]}-salient`
+        : "Mixed / below threshold";
       const series = foundation ? FOUNDATION_SERIES[foundation] : null;
 
       const kw = entry.matchedKeywords || {};
@@ -1160,6 +1176,85 @@
         : `Illustrative placeholder values (real historical FRED figures through 2024, not live-fetched yet) &middot; pending the scheduled pipeline's first run of <code>gini-data.json</code> (FRED: <code>GINIALLRH</code>).`;
     }
     loadGiniData();
+
+    // ============ PEACE AND CONFLICT / MIGRATION MODULE (Pillar 3) ============
+    // Forcibly displaced persons by UNHCR region of origin, latest year \u2014
+    // powers the Migration panel. This was documented in DECISIONS.md
+    // ("Peace and Conflict module visualizations") as already shipped, but
+    // the actual index.html markup/JS to consume peace-data.json (written
+    // by fetchDisplacementByRegion() in fetch-ticker-data.mjs) was never
+    // added \u2014 the panel silently stayed Lorem-ipsum. This is that missing
+    // implementation, not a new design decision. See DECISIONS.md.
+    //
+    // Placeholder values below are illustrative (not fetched), shaped like
+    // a plausible UNHCR regional breakdown, matching the convention of
+    // every other module's fallback array.
+    const PEACE_PLACEHOLDER = {
+      asOf: "2024",
+      series: [
+        { region: "Sub-Saharan Africa", millions: 28.4 },
+        { region: "Middle East & North Africa", millions: 15.2 },
+        { region: "Europe", millions: 12.1 },
+        { region: "Americas", millions: 9.8 },
+        { region: "South Asia", millions: 7.0 },
+        { region: "East Asia & Pacific", millions: 3.6 },
+        { region: "Other/unknown", millions: 2.1 },
+      ],
+    };
+
+    function renderPeaceChart(series) {
+      const w = 480;
+      const rowH = 30;
+      const padTop = 6, padBottom = 6;
+      const labelW = 168; // left column for region name
+      const valueGutter = 46; // right-side room for the "12.1M" label
+      const barAreaW = w - labelW - valueGutter;
+      const h = padTop + padBottom + series.length * rowH;
+      const max = Math.max(...series.map((d) => d.millions), 0.0001);
+
+      const rows = series.map((d, i) => {
+        const y = padTop + i * rowH;
+        const barW = (d.millions / max) * barAreaW;
+        const barY = y + 5;
+        const barH = rowH - 12;
+        return `
+          <text x="${labelW - 8}" y="${y + rowH / 2 + 3}" text-anchor="end" font-size="10" fill="var(--text)" opacity="0.75" font-family="var(--font-label)">${d.region}</text>
+          <rect x="${labelW}" y="${barY}" width="${Math.max(barW, 1)}" height="${barH}" fill="var(--ristra)" opacity="0.85" rx="1" />
+          <text x="${labelW + barW + 6}" y="${y + rowH / 2 + 3}" font-size="10" fill="var(--text)" opacity="0.8" font-family="var(--font-data)">${d.millions.toFixed(1)}M</text>
+        `;
+      }).join("");
+
+      const summary = series.map((d) => `${d.region} ${d.millions.toFixed(1)} million`).join(", ");
+      document.getElementById("peaceChart").innerHTML = `
+        <svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Bar chart of forcibly displaced persons by region of origin: ${summary}">
+          ${rows}
+        </svg>`;
+    }
+
+    async function loadPeaceData() {
+      let series = PEACE_PLACEHOLDER.series;
+      let asOf = null;
+      try {
+        const res = await fetch("./peace-data.json", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.series?.length) {
+          series = data.series;
+          asOf = data.asOf ?? null;
+        }
+      } catch (err) {
+        console.warn("peace-data.json unavailable, using illustrative placeholder values:", err);
+      }
+
+      renderPeaceChart(series);
+
+      const disclaimer = document.getElementById("peaceDisclaimer");
+      if (!disclaimer) return;
+      disclaimer.innerHTML = asOf
+        ? `As of ${asOf} &middot; live via scheduled pipeline (UNHCR Refugee Data Finder, by region of origin).`
+        : `Illustrative placeholder values (not live-fetched yet) &middot; pending the scheduled pipeline's first run of <code>peace-data.json</code>.`;
+    }
+    loadPeaceData();
 
     // ============ STRUCTURAL POWER & POLITICAL ECONOMY MODULE (Pillar 1) ============
     // Student Loans Owned and Securitized (FRED: SLOASM, Board of
