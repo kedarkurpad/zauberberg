@@ -1604,3 +1604,28 @@ async function main() {
     }
   }
   await writeFile(DISCOURSE_OUT_PATH, JSON.stringify(discourseOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${DISCOURSE_OUT_PATH}.`);
+
+  // Democracy (Pillar 1) panel: US Liberal Democracy Index time series —
+  // own sibling output file, same reason gini-data.json/student-loan-data.json
+  // are separate from ticker-data.json (a chart series, not a single ticker
+  // value). Same fall-back-to-last-published behavior on fetch failure.
+  const existingDemocracy = await loadExistingDemocracy();
+  let democracyOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const democracy = await fetchDemocracySeries();
+    democracyOutput = { generatedAt: democracyOutput.generatedAt, ...democracy };
+  } catch (err) {
+    console.error(`[warn] fetchDemocracySeries failed: ${err.message}`);
+    if (existingDemocracy.series) {
+      democracyOutput = { ...existingDemocracy, generatedAt: democracyOutput.generatedAt };
+    }
+  }
+  await writeFile(DEMOCRACY_OUT_PATH, JSON.stringify(democracyOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${DEMOCRACY_OUT_PATH}.`);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
