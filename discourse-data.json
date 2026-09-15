@@ -1,291 +1,396 @@
 {
-  "generatedAt": "2026-09-14T18:05:47.063Z",
-  "asOf": "2026-02-11",
+  "generatedAt": "2026-09-15T17:01:55.023Z",
+  "asOf": "2026-04-22",
   "source": "GovInfo Congressional Hearings (CHRG)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
     {
-      "granuleId": "CHRG-119hhrg63965",
-      "title": "Oversight of the Securities and Exchange Commission",
-      "date": "2026-02-11",
-      "excerpt": "…NDREW R. GARBARINO, New York RASHIDA TLAIB, Michigan SCOTT FITZGERALD, Wisconsin RITCHIE TORRES, New York MIKE FLOOD, Nebraska NIKEMA WILLIAMS, Georgia MICHAEL LAWLER, New York BRITTANY PETTERSEN, Colorado MONICA DE LA CRUZ, Texas CLEO FIELDS, Louisiana ANDREW OGLES, Tennessee JANELLE BYNUM, Oregon ZACHARY NUNN, Iowa S…",
-      "wordCount": 26743,
+      "granuleId": "CHRG-119hhrg64156",
+      "title": "Diversifying Risk: The Benefits of Reinsurance and Credit Risk Transfers",
+      "date": "2026-04-22",
+      "excerpt": "…et is running smoothly. The bottom line: Reinsurance and CRT help distribute risk across the market. Both make our insurance market and mortgage market operate safely and soundly. I would like to add the following document into the record for this hearing, an April 21, 2026, letter from the National Association of Real…",
+      "wordCount": 11848,
       "moralFoundations": {
-        "care": 2.7,
-        "fairness": 0.7,
-        "loyalty": 0.6,
-        "authority": 3.3,
-        "purity": 1.2
+        "care": 3,
+        "fairness": 0.3,
+        "loyalty": 2.4,
+        "authority": 1.4,
+        "purity": 0.9
       },
-      "dominantFoundation": "authority",
+      "dominantFoundation": "care",
       "matchedKeywords": {
         "care": [
+          "safely",
+          "protection",
           "protect",
-          "protections",
-          "protected",
-          "protecting",
-          "harm"
+          "safety",
+          "protects"
         ],
         "fairness": [
           "fair",
-          "corrupt",
-          "justice",
-          "corruption",
-          "honesty"
+          "fairly"
         ],
         "loyalty": [
-          "loyalty",
+          "national",
           "communities",
+          "together",
           "team",
-          "patriotic",
-          "national"
+          "nation"
         ],
         "authority": [
           "lawler",
           "order",
-          "authorities",
+          "legitimate",
+          "leadership",
+          "traditional"
+        ],
+        "purity": [
+          "since",
+          "single"
+        ],
+        "anger": [
+          "attacks"
+        ],
+        "fear": [
+          "risk",
+          "risks",
+          "crisis",
+          "risky",
+          "danger"
+        ],
+        "joy": [
+          "joyce",
+          "happens",
+          "happening",
+          "hope",
+          "happen"
+        ],
+        "sadness": [
+          "loss",
+          "declining"
+        ],
+        "positive": [
+          "benefits",
+          "strong",
+          "good",
+          "opportunity",
+          "supporting"
+        ],
+        "negative": [
+          "bad",
+          "damage",
+          "crisis",
+          "weaknesses",
+          "declining"
+        ]
+      },
+      "emotions": {
+        "anger": 0.1,
+        "fear": 19.9,
+        "joy": 0.8,
+        "sadness": 0.8
+      },
+      "dominantEmotion": "fear",
+      "tone": {
+        "positive": 5.2,
+        "negative": 3.2,
+        "score": 2
+      }
+    },
+    {
+      "granuleId": "CHRG-119hhrg64152",
+      "title": "Innovation at the Speed of Markets: How Regulators Keep Pace with Technology",
+      "date": "2026-03-26",
+      "excerpt": "…hat means embracing new supervisory technologies, investing in talent, and engaging directly with innovators, not as adversaries, but as partners in building a safer and more resilient system. At the same time, we must be clear that fostering innovation is not optional. It is essential to maintaining the United States'…",
+      "wordCount": 17718,
+      "moralFoundations": {
+        "care": 3.6,
+        "fairness": 0.2,
+        "loyalty": 2.6,
+        "authority": 2.4,
+        "purity": 0.5
+      },
+      "dominantFoundation": "care",
+      "matchedKeywords": {
+        "care": [
+          "safer",
+          "protect",
+          "protections",
+          "protection",
+          "safety"
+        ],
+        "fairness": [
+          "fair"
+        ],
+        "loyalty": [
+          "national",
+          "teams",
+          "community",
+          "team",
+          "together"
+        ],
+        "authority": [
+          "lawler",
+          "order",
+          "leadership",
           "law",
           "leaders"
         ],
         "purity": [
           "since",
           "single",
-          "corrupt",
-          "corruption",
-          "virtue"
+          "sing"
         ],
         "anger": [
-          "angry",
-          "aggressive"
+          "threaten",
+          "threats",
+          "attack",
+          "threat"
         ],
         "fear": [
+          "risk",
           "risks",
           "danger",
-          "risk",
           "crisis",
           "worried"
         ],
         "joy": [
           "joyce",
-          "happening",
-          "proud",
-          "happen",
+          "encourage",
+          "hopeful",
+          "encouraging",
           "happy"
         ],
         "sadness": [
-          "declined",
+          "struggling"
+        ],
+        "positive": [
+          "growth",
+          "secure",
+          "opportunity",
+          "good",
+          "security"
+        ],
+        "negative": [
+          "failure",
+          "fail",
+          "threaten",
+          "bad",
+          "threats"
+        ]
+      },
+      "emotions": {
+        "anger": 0.5,
+        "fear": 4.2,
+        "joy": 1.7,
+        "sadness": 0.1
+      },
+      "dominantEmotion": "fear",
+      "tone": {
+        "positive": 5.6,
+        "negative": 1.1,
+        "score": 4.5
+      }
+    },
+    {
+      "granuleId": "CHRG-118hhrg63968",
+      "title": "The Role of Self-Regulatory Organizations in U.S. Markets: Examining Finra and the Msrb",
+      "date": "2026-03-05",
+      "excerpt": "…NDREW R. GARBARINO, New York RASHIDA TLAIB, Michigan SCOTT FITZGERALD, Wisconsin RITCHIE TORRES, New York MIKE FLOOD, Nebraska NIKEMA WILLIAMS, Georgia MICHAEL LAWLER, New York BRITTANY PETTERSEN, Colorado MONICA DE LA CRUZ, Texas CLEO FIELDS, Louisiana ANDREW OGLES, Tennessee JANELLE BYNUM, Oregon ZACHARY NUNN, Iowa S…",
+      "wordCount": 15350,
+      "moralFoundations": {
+        "care": 2.6,
+        "fairness": 1.6,
+        "loyalty": 1,
+        "authority": 4.7,
+        "purity": 0.6
+      },
+      "dominantFoundation": "authority",
+      "matchedKeywords": {
+        "care": [
+          "protections",
+          "safe",
+          "kind",
+          "victim",
+          "protect"
+        ],
+        "fairness": [
+          "fairness",
+          "fair",
+          "justice",
+          "fairer",
+          "rights"
+        ],
+        "loyalty": [
+          "teams",
+          "national",
+          "together",
+          "nation's"
+        ],
+        "authority": [
+          "lawler",
+          "law",
+          "leader",
+          "order",
+          "authority"
+        ],
+        "purity": [
+          "since",
+          "purely"
+        ],
+        "anger": [
+          "outrageous",
+          "threats",
+          "aggressively"
+        ],
+        "fear": [
+          "risks",
+          "crisis",
+          "risky",
+          "risk",
+          "worry"
+        ],
+        "joy": [
+          "joyce",
+          "encouraged",
+          "encouragement",
+          "encourage",
+          "happens"
+        ],
+        "sadness": [
           "decline",
-          "struggle"
+          "loss",
+          "struggle",
+          "struggling"
         ],
         "positive": [
           "securities",
           "good",
-          "growth",
-          "opportunities",
-          "strongly"
+          "improvement",
+          "strong",
+          "opportunity"
         ],
         "negative": [
-          "failing",
-          "corrupt",
-          "corruption",
-          "harm",
-          "danger"
-        ]
-      },
-      "emotions": {
-        "anger": 0.1,
-        "fear": 0.7,
-        "joy": 1.9,
-        "sadness": 0.2
-      },
-      "dominantEmotion": "joy",
-      "tone": {
-        "positive": 6.2,
-        "negative": 0.9,
-        "score": 5.3
-      }
-    },
-    {
-      "granuleId": "CHRG-119hhrg64315",
-      "title": "Building a Talent Marketplace: How Lers Empower Workers and Expand Opportunity",
-      "date": "2025-12-10",
-      "excerpt": "…and unable to provide for themselves and their families. As unemployment rises, many job seekers are looking to advance their skills to open the door to a new kind of work. Today's hearing will focus on learning and employment records, or LERs, which the Brookings Institute defines as a comprehensive digital record of…",
-      "wordCount": 17653,
-      "moralFoundations": {
-        "care": 2.2,
-        "fairness": 0.4,
-        "loyalty": 2.2,
-        "authority": 1,
-        "purity": 0.6
-      },
-      "dominantFoundation": "care",
-      "matchedKeywords": {
-        "care": [
-          "kind",
-          "protections",
-          "safely",
-          "hurting",
-          "safety"
-        ],
-        "fairness": [
-          "rights",
-          "discrimination",
-          "equal",
-          "bias"
-        ],
-        "loyalty": [
-          "communities",
-          "nation's",
-          "nationally",
-          "together",
-          "national"
-        ],
-        "authority": [
-          "order",
-          "traditional",
-          "leadership",
-          "laws",
-          "leader"
-        ],
-        "purity": [
-          "since",
-          "decentralized",
-          "moral",
-          "decent"
-        ],
-        "anger": [
-          "threatening",
-          "angry",
-          "resentment"
-        ],
-        "fear": [
+          "decline",
+          "weaknesses",
+          "bad",
           "crisis",
-          "risks",
-          "afraid",
-          "fear"
-        ],
-        "joy": [
-          "encouraged",
-          "encourage",
-          "happening",
-          "hope",
-          "happens"
-        ],
-        "sadness": [
-          "struggle",
-          "loss",
-          "declined"
-        ],
-        "positive": [
-          "opportunity",
-          "growth",
-          "opportunities",
-          "good",
-          "support"
-        ],
-        "negative": [
-          "failure",
-          "crisis",
-          "threatening",
-          "fails",
-          "failed"
+          "harm"
         ]
       },
       "emotions": {
         "anger": 0.2,
-        "fear": 0.3,
-        "joy": 1.3,
-        "sadness": 0.2
+        "fear": 1.2,
+        "joy": 0.8,
+        "sadness": 0.5
       },
-      "dominantEmotion": "joy",
+      "dominantEmotion": "fear",
       "tone": {
-        "positive": 7.6,
-        "negative": 0.6,
-        "score": 7
+        "positive": 5.4,
+        "negative": 1.1,
+        "score": 4.3
       }
     },
     {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
-      "title": "PLEDGE OF ALLEGIANCE",
-      "date": "2026-09-10",
-      "excerpt": "…43 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
-      "wordCount": 88,
+      "granuleId": "CHRG-119hhrg63966",
+      "title": "Homeownership and the Role of the Secondary Mortgage Market",
+      "date": "2026-02-11",
+      "excerpt": "…security, or PLS market. Since 2008, that market has undergone enormous change. The most important evolution has been to ensure that underwriting practices are safe and sound. At SFA, we say bad loans make bad securities. Good loans make good securities. A lesson from the fact that pre-crisis failures in mortgage under…",
+      "wordCount": 17929,
       "moralFoundations": {
-        "care": 0,
-        "fairness": 11.4,
-        "loyalty": 56.8,
-        "authority": 0,
-        "purity": 0
+        "care": 2.4,
+        "fairness": 2.1,
+        "loyalty": 1.1,
+        "authority": 0.7,
+        "purity": 1.1
       },
-      "dominantFoundation": "loyalty",
+      "dominantFoundation": "care",
       "matchedKeywords": {
-        "care": [],
+        "care": [
+          "safe",
+          "protects",
+          "protect",
+          "safety",
+          "kind"
+        ],
         "fairness": [
-          "justice"
+          "rights",
+          "fair",
+          "justice",
+          "honesty",
+          "bias"
         ],
         "loyalty": [
-          "allegiance",
+          "national",
+          "nationwide",
+          "together",
+          "nation's",
           "nation"
         ],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
+        "authority": [
+          "lawler",
+          "order",
+          "authority",
+          "leadership",
+          "law"
+        ],
+        "purity": [
+          "since",
+          "single",
+          "clean"
+        ],
+        "anger": [
+          "threatened",
+          "attack",
+          "threat",
+          "aggressive",
+          "angry"
+        ],
+        "fear": [
+          "crisis",
+          "risk",
+          "risks",
+          "fear",
+          "worry"
+        ],
+        "joy": [
+          "joyce",
+          "hope",
+          "proud",
+          "happened",
+          "happy"
+        ],
+        "sadness": [
+          "struggling",
+          "loss",
+          "declined"
+        ],
+        "positive": [
+          "support",
+          "securitization",
+          "security",
+          "securities",
+          "securitize"
+        ],
+        "negative": [
+          "crisis",
+          "failing",
+          "bad",
+          "failures",
+          "failed"
+        ]
       },
       "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
+        "anger": 0.3,
+        "fear": 5.6,
+        "joy": 1.2,
+        "sadness": 0.2
       },
-      "dominantEmotion": null,
+      "dominantEmotion": "fear",
       "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH-FrontMatter-3",
-      "title": "House of Representatives",
-      "excerpt": "Congressional Record, Volume 172 Issue 143 (Thursday, September 10, 2026) [Congressional Record Volume 172, Number 143 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the…",
-      "wordCount": 55,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
+        "positive": 6.2,
+        "negative": 2.9,
+        "score": 3.3
       }
     }
   ]

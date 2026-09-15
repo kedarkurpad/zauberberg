@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-09-14T18:05:41.007Z",
+  "generatedAt": "2026-09-15T17:01:44.965Z",
   "indicators": [
     {
       "id": "treasury-spread",
       "name": "10Y–2Y Treasury Yield Spread (FRED: T10Y2Y)",
       "value": "0.3pp",
-      "change": "-0.1pp",
+      "change": "-0.0pp",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "2026-09-11"
+      "asOf": "2026-09-14"
     },
     {
       "id": "labor-share",
@@ -24,11 +24,11 @@
     {
       "id": "dollar-index",
       "name": "Nominal Broad U.S. Dollar Index (FRED: DTWEXBGS)",
-      "value": "118.07",
-      "change": "-0.05",
+      "value": "118.21",
+      "change": "+0.13",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "2026-09-04"
+      "asOf": "2026-09-11"
     },
     {
       "id": "unemployment-gap",
