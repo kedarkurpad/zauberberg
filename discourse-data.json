@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T17:01:55.023Z",
+  "generatedAt": "2026-09-16T16:58:27.514Z",
   "asOf": "2026-04-22",
   "source": "GovInfo Congressional Hearings (CHRG)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
@@ -98,299 +98,300 @@
       }
     },
     {
-      "granuleId": "CHRG-119hhrg64152",
-      "title": "Innovation at the Speed of Markets: How Regulators Keep Pace with Technology",
-      "date": "2026-03-26",
-      "excerpt": "…hat means embracing new supervisory technologies, investing in talent, and engaging directly with innovators, not as adversaries, but as partners in building a safer and more resilient system. At the same time, we must be clear that fostering innovation is not optional. It is essential to maintaining the United States'…",
-      "wordCount": 17718,
-      "moralFoundations": {
-        "care": 3.6,
-        "fairness": 0.2,
-        "loyalty": 2.6,
-        "authority": 2.4,
-        "purity": 0.5
-      },
-      "dominantFoundation": "care",
-      "matchedKeywords": {
-        "care": [
-          "safer",
-          "protect",
-          "protections",
-          "protection",
-          "safety"
-        ],
-        "fairness": [
-          "fair"
-        ],
-        "loyalty": [
-          "national",
-          "teams",
-          "community",
-          "team",
-          "together"
-        ],
-        "authority": [
-          "lawler",
-          "order",
-          "leadership",
-          "law",
-          "leaders"
-        ],
-        "purity": [
-          "since",
-          "single",
-          "sing"
-        ],
-        "anger": [
-          "threaten",
-          "threats",
-          "attack",
-          "threat"
-        ],
-        "fear": [
-          "risk",
-          "risks",
-          "danger",
-          "crisis",
-          "worried"
-        ],
-        "joy": [
-          "joyce",
-          "encourage",
-          "hopeful",
-          "encouraging",
-          "happy"
-        ],
-        "sadness": [
-          "struggling"
-        ],
-        "positive": [
-          "growth",
-          "secure",
-          "opportunity",
-          "good",
-          "security"
-        ],
-        "negative": [
-          "failure",
-          "fail",
-          "threaten",
-          "bad",
-          "threats"
-        ]
-      },
-      "emotions": {
-        "anger": 0.5,
-        "fear": 4.2,
-        "joy": 1.7,
-        "sadness": 0.1
-      },
-      "dominantEmotion": "fear",
-      "tone": {
-        "positive": 5.6,
-        "negative": 1.1,
-        "score": 4.5
-      }
-    },
-    {
-      "granuleId": "CHRG-118hhrg63968",
-      "title": "The Role of Self-Regulatory Organizations in U.S. Markets: Examining Finra and the Msrb",
-      "date": "2026-03-05",
+      "granuleId": "CHRG-119hhrg64108",
+      "title": "Revisiting the Treasury-Fed Accord",
+      "date": "2026-03-18",
       "excerpt": "…NDREW R. GARBARINO, New York RASHIDA TLAIB, Michigan SCOTT FITZGERALD, Wisconsin RITCHIE TORRES, New York MIKE FLOOD, Nebraska NIKEMA WILLIAMS, Georgia MICHAEL LAWLER, New York BRITTANY PETTERSEN, Colorado MONICA DE LA CRUZ, Texas CLEO FIELDS, Louisiana ANDREW OGLES, Tennessee JANELLE BYNUM, Oregon ZACHARY NUNN, Iowa S…",
-      "wordCount": 15350,
+      "wordCount": 11922,
       "moralFoundations": {
-        "care": 2.6,
-        "fairness": 1.6,
+        "care": 0.9,
+        "fairness": 0.5,
         "loyalty": 1,
-        "authority": 4.7,
-        "purity": 0.6
+        "authority": 1.6,
+        "purity": 0.8
       },
       "dominantFoundation": "authority",
       "matchedKeywords": {
         "care": [
-          "protections",
-          "safe",
           "kind",
-          "victim",
-          "protect"
+          "protecting",
+          "suffers",
+          "protections",
+          "harm"
         ],
         "fairness": [
-          "fairness",
-          "fair",
           "justice",
-          "fairer",
-          "rights"
+          "equally",
+          "fair",
+          "equal"
         ],
         "loyalty": [
-          "teams",
+          "nation's",
           "national",
           "together",
-          "nation's"
+          "community"
         ],
         "authority": [
           "lawler",
-          "law",
-          "leader",
           "order",
+          "respect",
+          "authorities",
           "authority"
         ],
         "purity": [
           "since",
+          "clean",
           "purely"
         ],
         "anger": [
-          "outrageous",
-          "threats",
-          "aggressively"
+          "threat"
         ],
         "fear": [
-          "risks",
-          "crisis",
-          "risky",
           "risk",
-          "worry"
+          "crisis",
+          "dangerous",
+          "dangers",
+          "risks"
         ],
         "joy": [
           "joyce",
-          "encouraged",
-          "encouragement",
+          "hope",
+          "happen",
           "encourage",
-          "happens"
+          "hopefully"
         ],
         "sadness": [
-          "decline",
-          "loss",
-          "struggle",
-          "struggling"
+          "loss"
         ],
         "positive": [
-          "securities",
-          "good",
-          "improvement",
-          "strong",
+          "support",
+          "stronger",
+          "improve",
+          "security",
           "opportunity"
         ],
         "negative": [
-          "decline",
-          "weaknesses",
-          "bad",
+          "threat",
           "crisis",
+          "dangerous",
+          "dangers",
           "harm"
         ]
       },
       "emotions": {
         "anger": 0.2,
-        "fear": 1.2,
-        "joy": 0.8,
-        "sadness": 0.5
+        "fear": 2.6,
+        "joy": 1.1,
+        "sadness": 0.1
       },
       "dominantEmotion": "fear",
       "tone": {
-        "positive": 5.4,
-        "negative": 1.1,
-        "score": 4.3
+        "positive": 5.2,
+        "negative": 1.8,
+        "score": 3.4
       }
     },
     {
-      "granuleId": "CHRG-119hhrg63966",
-      "title": "Homeownership and the Role of the Secondary Mortgage Market",
-      "date": "2026-02-11",
-      "excerpt": "…security, or PLS market. Since 2008, that market has undergone enormous change. The most important evolution has been to ensure that underwriting practices are safe and sound. At SFA, we say bad loans make bad securities. Good loans make good securities. A lesson from the fact that pre-crisis failures in mortgage under…",
-      "wordCount": 17929,
+      "granuleId": "CHRG-119shrg61883",
+      "title": "Confirmation Hearing on Federal Appointments",
+      "date": "2025-04-30",
+      "excerpt": "…family and friends for coming today, and I'm sure all of the family and friends are proud of these two nominees. Mr. Cole, you have an impressive background in law enforcement. You started your career as a police officer for your alma mater, Rochester Institute of Technology, before serving several municipalities. You…",
+      "wordCount": 15031,
       "moralFoundations": {
-        "care": 2.4,
-        "fairness": 2.1,
-        "loyalty": 1.1,
-        "authority": 0.7,
-        "purity": 1.1
+        "care": 2.9,
+        "fairness": 1.9,
+        "loyalty": 3,
+        "authority": 7,
+        "purity": 0.9
+      },
+      "dominantFoundation": "authority",
+      "matchedKeywords": {
+        "care": [
+          "safety",
+          "safe",
+          "protecting",
+          "protections",
+          "protection"
+        ],
+        "fairness": [
+          "justice",
+          "rights",
+          "equally",
+          "corruption",
+          "fair"
+        ],
+        "loyalty": [
+          "homeland",
+          "national",
+          "community",
+          "nationally",
+          "nation"
+        ],
+        "authority": [
+          "law",
+          "leadership",
+          "chaos",
+          "tradition",
+          "leaders"
+        ],
+        "purity": [
+          "since",
+          "corruption",
+          "sinaloa",
+          "sincere",
+          "single"
+        ],
+        "anger": [
+          "threats",
+          "attacked",
+          "threat",
+          "threatened",
+          "threatening"
+        ],
+        "fear": [
+          "crisis",
+          "fear",
+          "danger",
+          "dangerous",
+          "risk"
+        ],
+        "joy": [
+          "proud",
+          "hope",
+          "happening",
+          "pride",
+          "joy"
+        ],
+        "sadness": [],
+        "positive": [
+          "good",
+          "security",
+          "success",
+          "support",
+          "strong"
+        ],
+        "negative": [
+          "crisis",
+          "threats",
+          "danger",
+          "harm",
+          "bad"
+        ]
+      },
+      "emotions": {
+        "anger": 1,
+        "fear": 1.5,
+        "joy": 2.3,
+        "sadness": 0
+      },
+      "dominantEmotion": "joy",
+      "tone": {
+        "positive": 5.3,
+        "negative": 3.1,
+        "score": 2.2
+      }
+    },
+    {
+      "granuleId": "CHRG-118hhrg58134",
+      "title": "Fact and Fiction: Getting to the Bottom of the VA Budget Shortfall",
+      "date": "2024-12-05",
+      "excerpt": "…ging. VA's leaders have not been shy about asking for billions of extra taxpayer dollars. However, when we dig into how they came up with those numbers we get, kind of, the runaround and as it is there is no true answer from anyone. All the estimates are wrong. Basic figures about how much they have already spent are w…",
+      "wordCount": 25640,
+      "moralFoundations": {
+        "care": 7.7,
+        "fairness": 0.3,
+        "loyalty": 3.2,
+        "authority": 1.3,
+        "purity": 1.2
       },
       "dominantFoundation": "care",
       "matchedKeywords": {
         "care": [
-          "safe",
-          "protects",
-          "protect",
+          "kind",
+          "care",
           "safety",
-          "kind"
+          "safely",
+          "safeguards"
         ],
         "fairness": [
-          "rights",
-          "fair",
+          "honest",
           "justice",
-          "honesty",
-          "bias"
+          "corruption",
+          "honesty"
         ],
         "loyalty": [
-          "national",
-          "nationwide",
-          "together",
+          "community",
+          "patriotic",
+          "communities",
           "nation's",
-          "nation"
+          "teams"
         ],
         "authority": [
-          "lawler",
           "order",
-          "authority",
-          "leadership",
-          "law"
+          "leaders",
+          "law",
+          "respected",
+          "leadership"
         ],
         "purity": [
-          "since",
           "single",
-          "clean"
+          "since",
+          "corruption",
+          "moral"
         ],
         "anger": [
-          "threatened",
-          "attack",
-          "threat",
+          "attacks",
+          "hostile",
           "aggressive",
-          "angry"
+          "aggressively"
         ],
         "fear": [
-          "crisis",
           "risk",
-          "risks",
-          "fear",
-          "worry"
+          "anxiety",
+          "worries",
+          "dangerously",
+          "fear"
         ],
         "joy": [
-          "joyce",
+          "happen",
+          "encouraged",
           "hope",
-          "proud",
-          "happened",
-          "happy"
+          "happening",
+          "happened"
         ],
         "sadness": [
-          "struggling",
+          "struggles",
+          "struggle",
           "loss",
-          "declined"
+          "sadly",
+          "sad"
         ],
         "positive": [
-          "support",
-          "securitization",
-          "security",
-          "securities",
-          "securitize"
+          "benefits",
+          "good",
+          "benefit",
+          "supported",
+          "support"
         ],
         "negative": [
-          "crisis",
-          "failing",
           "bad",
-          "failures",
-          "failed"
+          "failing",
+          "failure",
+          "dangerously",
+          "danger"
         ]
       },
       "emotions": {
-        "anger": 0.3,
-        "fear": 5.6,
-        "joy": 1.2,
-        "sadness": 0.2
+        "anger": 0.4,
+        "fear": 1.5,
+        "joy": 1.6,
+        "sadness": 0.5
       },
-      "dominantEmotion": "fear",
+      "dominantEmotion": "joy",
       "tone": {
-        "positive": 6.2,
-        "negative": 2.9,
-        "score": 3.3
+        "positive": 7.9,
+        "negative": 0.8,
+        "score": 7.1
       }
     }
   ]
