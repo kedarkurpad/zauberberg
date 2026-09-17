@@ -1,104 +1,32 @@
 #!/usr/bin/env node
 /**
- * Fetches ticker indicators server-side (so API keys never touch the browser)
- * and writes /ticker-data.json for the static page to read. Also fetches the
- * Energy module's generation-mix chart dataset and writes /energy-data.json
- * alongside it, the Distributional Justice module's US Gini time series,
- * writing /gini-data.json, the Structural Power module's Student Loans
- * Owned and Securitized time series, writing /student-loan-data.json, the
- * Peace and Conflict module's forcibly-displaced-persons-by-region
- * breakdown, writing /peace-data.json, the discourse-tagging module's
- * lexicon-scored Congressional Hearings (CHRG) excerpts, writing
- * /discourse-data.json (see DECISIONS.md, "Discourse-tagging module"), and
- * the Democracy
- * module's US Liberal Democracy Index (V-Dem, via OWID) time series,
- * writing /democracy-data.json (see DECISIONS.md, "Democracy module").
- *
- * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
- * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
- * energy-data.json now carries only generationMix.
+ * Fetches ticker indicators and module chart data server-side (so API keys
+ * never touch the browser) and writes the static JSON files the page reads:
+ *   ticker-data.json, energy-data.json, gini-data.json,
+ *   student-loan-data.json, peace-data.json, discourse-data.json,
+ *   democracy-data.json.
  *
  * Run by .github/workflows/update-ticker-data.yml on a schedule.
  *
- * Secrets expected in the repo (Settings -> Secrets and variables -> Actions):
- *   FRED_API_KEY   - https://fredaccount.stlouisfed.org/apikeys (free)
- *   BLS_API_KEY    - https://data.bls.gov/registrationEngine/ (free, optional —
- *                    script falls back to unauthenticated calls at a lower quota)
- *   CENSUS_API_KEY - https://api.census.gov/data/key_signup.html (free, optional —
- *                    currently unused by the active pipeline; see fetchGini/
- *                    fetchIncomeGap below)
- *   EIA_API_KEY    - https://www.eia.gov/opendata/register.php (free, REQUIRED
- *                    for fetchSPR \u2014 EIA does not offer an unauthenticated
- *                    fallback the way BLS/Census do)
- *   GOVINFO_API_KEY - https://api.govinfo.gov/docs/ (free, OPTIONAL \u2014 GovInfo
- *                    accepts the shared, unregistered "DEMO_KEY" at a low rate
- *                    limit (30/hr, 50/day per api.data.gov's shared quota) for
- *                    fetchDiscourseTags(). Register for a personal key only if
- *                    the demo quota turns out to be too tight for the daily
- *                    schedule \u2014 see DECISIONS.md, "Discourse-tagging module".)
+ * Full rationale, tradeoffs, and change history for every indicator and
+ * module lives in DECISIONS.md — this file's comments cover only what's
+ * needed to safely modify the code (non-obvious gotchas, unconfirmed
+ * assumptions, guardrails), not the "why we chose this" narrative.
  *
- * Design notes (see DECISIONS.md, Technical Requirements):
- *   - Wired up and in the core ticker: FRED (T10Y2Y, labor share, Nominal
- *     Broad Dollar Index, WTI 20-day realized volatility, US home-price
- *     YoY growth), BLS (unemployment gap), OWID/WID (global top 1% wealth
- *     share, US top 1% income share), EIA (Strategic Petroleum
- *     Reserve), UNHCR (forcibly displaced persons, global total). GDELT
- *     tone was dropped by request \u2014 see DECISIONS.md changelog. Tier 2
- *     (ECB spread, OFAC additions, EU ETS/Ember) is intentionally
- *     deferred.
- *   - Energy module (separate output, energy-data.json, not the ticker):
- *     fetchGenerationMix(), EIA, reusing the existing EIA_API_KEY (no new
- *     secret). Written without a live test call (no network egress in this
- *     sandbox) \u2014 verify the first real run's response shape before
- *     trusting it unattended; see the CAVEAT comment on the function.
- *     (fetchCrudeImports() and its treemap were removed 2026-09-11 by
- *     request \u2014 see DECISIONS.md changelog.)
- *   - Core ticker also gained fetchEnergyVolatility() (FRED DCOILWTICO,
- *     WTI crude), a Pillar 4 leverage-framed indicator: 20-trading-day
- *     realized volatility of the WTI spot price, not the price level
- *     itself \u2014 volatility/swings are read as exposure to supply-chain
- *     and geopolitical shocks (Klein; Riofrancos; Malm; Mitchell), the
- *     same leverage logic already used for the SPR indicator, whereas a
- *     bare price level would fail the Pillar 4 relevance test as plain
- *     supply-and-demand economics. See DECISIONS.md.
- *   - Core ticker also gained fetchDisplacement() (UNHCR Refugee Data
- *     Finder API, fully keyless, no new secret), a Pillar 3 indicator:
- *     global forcibly displaced persons (refugees + asylum-seekers + IDPs
- *     + other people in need of international protection), annual. Takes
- *     the ristra token already reserved for Pillar 3. Peace module
- *     (separate output, peace-data.json): fetchDisplacementByRegion(),
- *     same API, breaking the same population down by UNHCR region of
- *     origin for the panel's grouped bar chart \u2014 the dashboard's first
- *     non-time-series panel chart. Both unverified against a live
- *     response (no network egress in this sandbox); see DECISIONS.md.
- *   - Discourse-tagging module (separate output, discourse-data.json, not
- *     the ticker): fetchDiscourseTags(), sourced from the GovInfo
- *     Congressional Hearings (CHRG) API \u2014 official hearing transcripts
- *     (member Q&A + witness testimony), swapped in 2026-09-13 from the
- *     Congressional Record (CREC) for its much denser substantive
- *     rhetoric per granule \u2014 fitting the already-logged "public speech
- *     transcripts... not private citizens' social media" input scope.
- *     Scored with a lexicon-based
- *     method (Moral Foundations Dictionary + an NRC-style emotion lexicon)
- *     rather than an LLM call \u2014 chosen by request over both a paid
- *     Anthropic API call and a locally-run open model, on interpretability,
- *     setup-lift, and methodological-credibility grounds. This is
- *     deliberately second-generation NLP by the Törnberg paper's own
- *     typology (dictionary/word-frequency matching), not the third-
- *     generation "TDAA" framing floated earlier in this project's design
- *     discussion \u2014 see DECISIONS.md, "Discourse-tagging module", for the
- *     full reasoning and the tradeoff this accepts. The bundled word lists
- *     are a small illustrative STARTER SUBSET, not the full published MFD
- *     2.0 / NRC EmoLex files \u2014 swap in the full dictionaries (both free
- *     for academic use) before treating this as a real research instrument.
- *   - Defined but NOT in the active `fetchers` pipeline: fetchGini and
- *     fetchIncomeGap (Census ACS). Both only ever produce change: "n/a" —
- *     a single-point annual read with no prior-year diff — so neither
- *     carries a data-driven indication of movement, which was the bar set
- *     for the core indicator set. Kept in the file, not deleted, in case a
- *     future pass adds the second-year fetch + diff needed to qualify.
- *   - If a fetch fails, we keep whatever value was already in ticker-data.json
- *     for that indicator rather than crashing the whole run or writing a blank.
+ * Secrets expected in the repo (Settings -> Secrets and variables -> Actions):
+ *   FRED_API_KEY    - https://fredaccount.stlouisfed.org/apikeys (free)
+ *   BLS_API_KEY     - https://data.bls.gov/registrationEngine/ (free, optional;
+ *                     falls back to an unauthenticated call at a lower quota)
+ *   CENSUS_API_KEY  - https://api.census.gov/data/key_signup.html (free,
+ *                     optional; only used by the dormant fetchGini/fetchIncomeGap)
+ *   EIA_API_KEY     - https://www.eia.gov/opendata/register.php (free,
+ *                     REQUIRED for fetchSPR/fetchGenerationMix — EIA has no
+ *                     unauthenticated fallback)
+ *   GOVINFO_API_KEY - https://api.govinfo.gov/docs/ (free, optional — falls
+ *                     back to the shared "DEMO_KEY", 30/hr & 50/day cap)
+ *
+ * If a fetch fails, we keep whatever value was already published for that
+ * indicator/module rather than crashing the run or writing a blank.
  */
 
 import { writeFile, readFile } from "node:fs/promises";
@@ -116,70 +44,21 @@ const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
   `${n >= 0 ? "+" : ""}${n.toFixed(digits)}${suffix}`;
 
-async function loadExisting() {
+// Generic "read a JSON file, or return a fallback if it's missing/invalid"
+// helper — used for every module's fall-back-to-last-published behavior.
+async function readJsonOr(filePath, fallback) {
   try {
-    const raw = await readFile(OUT_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    const byId = {};
-    for (const ind of parsed.indicators ?? []) byId[ind.id] = ind;
-    return byId;
+    return JSON.parse(await readFile(filePath, "utf8"));
   } catch {
-    return {};
+    return fallback;
   }
 }
 
-async function loadExistingEnergy() {
-  try {
-    const raw = await readFile(ENERGY_OUT_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-async function loadExistingGini() {
-  try {
-    const raw = await readFile(GINI_OUT_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-async function loadExistingStudentLoan() {
-  try {
-    const raw = await readFile(STUDENT_LOAN_OUT_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-async function loadExistingPeace() {
-  try {
-    const raw = await readFile(PEACE_OUT_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-async function loadExistingDiscourse() {
-  try {
-    const raw = await readFile(DISCOURSE_OUT_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-async function loadExistingDemocracy() {
-  try {
-    const raw = await readFile(DEMOCRACY_OUT_PATH, "utf8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
+async function loadExistingTicker() {
+  const parsed = await readJsonOr(OUT_PATH, { indicators: [] });
+  const byId = {};
+  for (const ind of parsed.indicators ?? []) byId[ind.id] = ind;
+  return byId;
 }
 
 async function safeFetchJson(url, opts) {
@@ -188,18 +67,20 @@ async function safeFetchJson(url, opts) {
   return res.json();
 }
 
-// GDELT's public API has no uptime SLA and is occasionally slow or
-// unreachable from CI runners (network-level "fetch failed", not an HTTP
-// error). Retry a couple of times with a short timeout before giving up and
-// letting main() fall back to the previous value.
-const BROWSER_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
-
 async function safeFetchText(url, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
   return res.text();
 }
+
+// Some sources (GDELT, historically) are flaky from CI runners; browser
+// UA occasionally matters for hosts that reject default fetch UAs.
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
+
+// =====================================================================
+// Core ticker indicators
+// =====================================================================
 
 // ---- FRED: 10Y-2Y Treasury Yield Spread (T10Y2Y) ----
 async function fetchFred() {
@@ -221,13 +102,11 @@ async function fetchFred() {
     asOf: obs[0].date,
   };
 }
+fetchFred.indicatorId = "treasury-spread";
 
 // ---- FRED: Labor Share of Income (Penn World Table via FRED) ----
-// Deliberately using LABSHPUSA156NRUG (units: Ratio, i.e. unambiguously a
-// share of GDP) rather than BLS's quarterly index series (PRS84006173),
-// whose units are an index base rather than a clean percentage — annual
-// cadence here, consistent with the other annual indicators already on
-// the ticker (WID wealth/income share, Census Gini).
+// LABSHPUSA156NRUG (units: Ratio) rather than BLS's index-based
+// PRS84006173 — see DECISIONS.md for why.
 async function fetchLaborShare() {
   const key = process.env.FRED_API_KEY;
   if (!key) throw new Error("FRED_API_KEY not set");
@@ -244,29 +123,18 @@ async function fetchLaborShare() {
     change: fmtSigned(latest - prev, 1, "pp"),
     series: "terracotta",
     cadence: "annual",
-    // Value-polarity exception (added 2026-09-11, by request): rising labor
-    // share is read as good in this project's own distributive-justice
-    // framing (Piketty/Milanovic), so its delta overrides the neutral
-    // Pillar-1 terracotta with turquoise(up)/ochre(down) \u2014 see the CSS
-    // comment above .ticker__delta for the tradeoff this creates.
+    // Value-polarity exception: rising labor share reads as good under
+    // this project's distributive-justice framing, so its delta overrides
+    // the neutral terracotta with turquoise(up)/ochre(down) — see the
+    // [data-polarity] CSS rules in index.html and DECISIONS.md.
     polarity: "good-up",
     asOf: obs[0].date,
-    // Verified 2026-09-11 directly against
-    // https://fred.stlouisfed.org/series/LABSHPUSA156NRUG: latest real
-    // observation is 2023 (56.83%), and FRED lists this series' "Next
-    // Release Date" as Not Available. Penn World Table 11.0 may not get
-    // a scheduled future update at all \u2014 a bigger staleness risk than
-    // ordinary annual cadence. If this fetch keeps returning 2023 well
-    // into the future, that's the source being stuck, not a fetch bug.
     note: "Annual release \u2014 value is static between updates. Source has no scheduled next release as of 2026-09-11.",
   };
 }
+fetchLaborShare.indicatorId = "labor-share";
 
-// ---- FRED: Nominal Broad U.S. Dollar Index (currency hegemony proxy) ----
-// Trade-weighted dollar index, daily, index Jan 2006=100. Reuses
-// FRED_API_KEY \u2014 no new secret needed. Pillar 1 fit: Strange's
-// structural power over money/finance; also the same dollar-clearing
-// infrastructure Farrell & Newman's "weaponized interdependence" concerns.
+// ---- FRED: Nominal Broad U.S. Dollar Index ----
 async function fetchDollarIndex() {
   const key = process.env.FRED_API_KEY;
   if (!key) throw new Error("FRED_API_KEY not set");
@@ -286,8 +154,9 @@ async function fetchDollarIndex() {
     asOf: obs[0].date,
   };
 }
+fetchDollarIndex.indicatorId = "dollar-index";
 
-
+// ---- BLS: Black-White unemployment rate gap ----
 async function fetchBls() {
   const key = process.env.BLS_API_KEY; // optional
   const seriesid = ["LNS14000006", "LNS14000003"]; // Black, White (seas. adj.)
@@ -322,18 +191,16 @@ async function fetchBls() {
     name: "Black\u2013White Unemployment Rate Gap (BLS, monthly)",
     value: fmtPP(latestGap),
     change: fmtSigned(latestGap - prevGap),
-    // sage, not ristra: ristra is reserved for links + Pillar-3 going
-    // forward, and every other Pillar-2 (distributional justice) indicator
-    // now uses sage \u2014 see Visual Encoding Registry in the data dictionary.
-    series: "sage",
+    series: "sage", // Pillar 2 token — see the Visual Encoding Registry
     cadence: "monthly",
     asOf: `${black[0].year}-${black[0].period.replace("M", "")}`,
   };
 }
+fetchBls.indicatorId = "unemployment-gap";
 
-// ---- OWID (WID.world-sourced): Global Top 1% Wealth Share ----
-// Minimal CSV line parser (handles quoted fields) — OWID's CSVs are simple,
-// but this avoids silently misaligning columns if a field is ever quoted.
+// ---- OWID (WID.world-sourced) percent-indicator CSV helper ----
+// Minimal quoted-field-aware CSV line parser; OWID exports are simple but
+// this avoids silently misaligning columns if a field is ever quoted.
 function parseCsvLine(line) {
   const out = [];
   let cur = "";
@@ -378,10 +245,8 @@ async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderReg
   if (rows.length < 1) throw new Error(`OWID: no usable "${entityName}" rows found`);
   const latest = rows[0];
   const prev = rows[1] ?? latest;
-  // NOTE: OWID's CSV export already stores these as percent (their own
-  // metadata says "Unit: %"), NOT as a 0-1 fraction like WID.world's raw
-  // source data. Do not multiply by 100 here — that was the bug that
-  // produced 1900%+ readings.
+  // OWID's export already stores these as percent ("Unit: %"), not a 0-1
+  // fraction like WID.world's raw source — do not multiply by 100.
   return {
     latestPct: parseFloat(latest[valueIdx]),
     prevPct: parseFloat(prev[valueIdx]),
@@ -389,6 +254,7 @@ async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderReg
   };
 }
 
+// ---- OWID (WID.world-sourced): Global Top 1% Wealth Share ----
 async function fetchWealthShare() {
   const url =
     "https://ourworldindata.org/grapher/wealth-share-richest.csv?v=1&csvType=full&useColumnShortNames=false&quantile=richest_1pct";
@@ -404,18 +270,16 @@ async function fetchWealthShare() {
     change: fmtSigned(latestPct - prevPct, 1, "pp"),
     series: "sage",
     cadence: "annual",
-    // Value-polarity exception (added 2026-09-11, by request): rising top-1%
-    // concentration is read as bad, so its delta overrides the neutral
-    // Pillar-2 sage with ochre(up)/turquoise(down) instead \u2014 universal
-    // good=turquoise/bad=ochre scheme, added same day, replacing an
-    // earlier sage/ristra version. Note ochre is also spr-level's plain
-    // Pillar-4 identity color \u2014 known, accepted collision, see the CSS
-    // comment above .ticker__delta.
+    // Value-polarity exception: rising top-1% concentration reads as bad,
+    // so this overrides sage with ochre(up)/turquoise(down). Note ochre is
+    // also spr-level's plain Pillar-4 identity color — known, accepted
+    // collision; see DECISIONS.md.
     polarity: "bad-up",
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
 }
+fetchWealthShare.indicatorId = "wealth-share-top1";
 
 // ---- OWID (WID.world-sourced): US Top 1% Income Share (before tax) ----
 async function fetchIncomeShareUS() {
@@ -430,44 +294,211 @@ async function fetchIncomeShareUS() {
     name: "US Top 1% Income Share, Before Tax (WID.world, via OWID)",
     value: `${latestPct.toFixed(1)}%`,
     change: fmtSigned(latestPct - prevPct, 1, "pp"),
-    // sage, not turquoise: consolidating every Pillar-2 indicator onto one
-    // token frees turquoise for Pillar 3 once OFAC ships \u2014 see the
-    // Visual Encoding Registry in the data dictionary.
     series: "sage",
     cadence: "annual",
-    // Value-polarity exception (added 2026-09-11, by request): same
-    // reasoning as wealth-share-top1 \u2014 rising top-1% concentration
-    // reads as bad, so the delta overrides sage with ochre(up)/turquoise(down).
-    polarity: "bad-up",
+    polarity: "bad-up", // same reasoning as wealth-share-top1
     asOf: year,
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
 }
+fetchIncomeShareUS.indicatorId = "income-share-top1-us";
 
-// ---- OWID (V-Dem-sourced): US Liberal Democracy Index, full annual time series ----
-// Powers the Democracy (Pillar 1) panel's line chart — see index.html and
-// DECISIONS.md, "Democracy module." Pillar 1 fit, per the 2026-09-13
-// extension of that pillar's test (Strange; Mudde; Norris & Inglehart;
-// Levitsky & Ziblatt, added specifically for this): erosion of executive
-// constraints, clean elections, and civil-society/media freedom is itself
-// a leverage-over-structures signal, the same "who holds leverage" test
-// already used for treasury-spread/labor-share/dollar-index and the
-// dormant student-loan panel — this is a second, distinct Pillar-1 panel
-// candidate, not a replacement for that one (see DECISIONS.md).
+// ---- FRED: US Home Price Index, YoY growth ----
+// Ticker VALUE is YoY appreciation, not the raw index level (a bare price
+// series/level would read as supply-and-demand economics). "change" is
+// the month-over-month shift in that YoY rate (whether asset-wealth gains
+// are accelerating), not a plain level diff. No `polarity` field — see
+// DECISIONS.md for why this doesn't clear the same normative bar
+// wealth-share-top1/income-share-top1-us do.
 //
-// Source: V-Dem's Liberal Democracy Index (LDI, 0\u20131 scale), via OWID's
-// hosted CSV mirror, reusing the parseCsvLine() helper already written
-// for wealth-share-top1/income-share-top1-us — but NOT reusing
-// fetchOwidPercentIndicator() itself, since that helper assumes the
-// value column is stored as "%" in OWID's export; LDI is a plain 0\u20131
-// index, not a percent.
+// CSUSHPISA is the seasonally-adjusted series; do not swap in the NSA
+// variant (CSUSHPINSA) or the YoY figure reabsorbs seasonal noise.
+async function fetchHousingPriceIndex() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=CSUSHPISA&api_key=${key}&file_type=json&sort_order=desc&limit=14`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? [])
+    .filter((o) => o.value !== ".")
+    .map((o) => ({ date: o.date, value: parseFloat(o.value) }));
+  if (obs.length < 14) throw new Error("FRED: not enough usable CSUSHPISA observations for two YoY points");
+
+  const yoy = (i) => (obs[i].value / obs[i + 12].value - 1) * 100;
+  const latestYoy = yoy(0);
+  const prevYoy = yoy(1);
+
+  return {
+    id: "housing-price-index",
+    name: "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)",
+    value: `${latestYoy >= 0 ? "+" : ""}${latestYoy.toFixed(1)}%`,
+    change: fmtSigned(latestYoy - prevYoy, 1, "pp"),
+    series: "sage",
+    cadence: "monthly",
+    asOf: obs[0].date,
+    note: "Value is year-over-year home-price appreciation; change is the month-over-month shift in that YoY rate, not a simple index-point diff.",
+  };
+}
+fetchHousingPriceIndex.indicatorId = "housing-price-index";
+
+// ---- EIA: Strategic Petroleum Reserve, weekly crude oil ending stocks ----
+// A held reserve level is energy-security-as-leverage (Mitchell), not a
+// bare commodity price, per the Pillar 4 relevance test. Series is in
+// thousand barrels; converted to million barrels for display.
+// CAVEAT: written without a live test call — verify the response shape
+// (response.data[].period / .value) on the first real run.
+async function fetchSPR() {
+  const key = process.env.EIA_API_KEY;
+  if (!key) throw new Error("EIA_API_KEY not set");
+  const url = `https://api.eia.gov/v2/seriesid/PET.WCSSTUS1.W?api_key=${key}&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=2`;
+  const data = await safeFetchJson(url);
+  const rows = data?.response?.data ?? [];
+  if (rows.length < 1) throw new Error("EIA: no usable SPR observations");
+  const latestRaw = parseFloat(rows[0].value);
+  const prevRaw = rows.length > 1 ? parseFloat(rows[1].value) : latestRaw;
+  const latest = latestRaw / 1000; // thousand bbl -> million bbl
+  const prev = prevRaw / 1000;
+  return {
+    id: "spr-level",
+    name: "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)",
+    value: `${latest.toFixed(1)} MMbbl`,
+    change: fmtSigned(latest - prev, 1, " MMbbl"),
+    series: "ochre",
+    cadence: "weekly",
+    asOf: String(rows[0].period),
+  };
+}
+fetchSPR.indicatorId = "spr-level";
+
+// ---- FRED: Energy price volatility (WTI crude, 20-trading-day realized vol) ----
+// The SIGNAL is the swing, not the price level (a bare price would fail
+// the Pillar 4 relevance test the same way it does for spr-level).
+// Pulls ~45 daily closes (DCOILWTICO skips weekends/holidays), takes
+// day-over-day log returns over the most recent 20, and annualizes the
+// stdev (* sqrt(252)) as a percent. "change" re-runs the same calc on the
+// window shifted back one observation.
+// CAVEAT: the volatility math itself hasn't been sanity-checked against
+// an independent source — verify the first real run's value.
+async function fetchEnergyVolatility() {
+  const key = process.env.FRED_API_KEY;
+  if (!key) throw new Error("FRED_API_KEY not set");
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=DCOILWTICO&api_key=${key}&file_type=json&sort_order=desc&limit=45`;
+  const data = await safeFetchJson(url);
+  const obs = (data.observations ?? [])
+    .filter((o) => o.value !== ".")
+    .map((o) => ({ date: o.date, value: parseFloat(o.value) }))
+    .sort((a, b) => b.date.localeCompare(a.date)); // newest first
+
+  if (obs.length < 22) throw new Error("FRED: not enough usable DCOILWTICO observations for a 20-return window");
+
+  const logReturn = (newer, older) => Math.log(newer.value / older.value);
+  const stdevAnnualized = (window) => {
+    const returns = [];
+    for (let i = 0; i < window.length - 1; i++) returns.push(logReturn(window[i], window[i + 1]));
+    const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
+    return Math.sqrt(variance) * Math.sqrt(252) * 100;
+  };
+
+  const latestVol = stdevAnnualized(obs.slice(0, 21));
+  const prevVol = stdevAnnualized(obs.slice(1, 22));
+
+  return {
+    id: "energy-price-volatility",
+    name: "Energy Price Volatility \u2014 WTI 20-Day Realized Vol (FRED: DCOILWTICO)",
+    value: `${latestVol.toFixed(1)}%`,
+    change: fmtSigned(latestVol - prevVol, 1, "pp"),
+    series: "ochre",
+    cadence: "daily",
+    asOf: obs[0].date,
+    note: "Annualized realized volatility of WTI crude over the trailing 20 trading days \u2014 the swing, not the price level, is the Pillar 4 signal.",
+  };
+}
+fetchEnergyVolatility.indicatorId = "energy-price-volatility";
+
+// ---- UNHCR: Forcibly Displaced Persons, Global Total ----
+// Sum of refugees + asylum-seekers + IDPs + other people in need of
+// international protection (UNHCR's own "forcibly displaced" definition;
+// deliberately excludes stand-alone stateless persons). No `polarity`
+// field yet — flagged in DECISIONS.md as a candidate, not decided.
 //
-// CAVEAT (same pattern as fetchGiniSeries/fetchSPR/fetchGenerationMix):
-// written without a live test call (no network egress in this sandbox)
-// \u2014 the grapher CSV slug ("liberal-democracy-index") and column layout
-// are inferred from OWID's Democracy data explorer, not confirmed against
-// a real response. Verify the first real Action run's header row before
-// trusting this unattended.
+// Omitting both coo and coa aggregates every row server-side into one
+// global row per year, per UNHCR's documented API behavior.
+async function fetchDisplacement() {
+  const thisYear = new Date().getFullYear();
+  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
+  const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
+  const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
+  console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
+  console.log("[diag] /population (global) row count:", rows.length);
+  if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
+
+  const byYear = {};
+  for (const r of rows) {
+    const y = Number(r.year);
+    const total =
+      (Number(r.refugees) || 0) +
+      (Number(r.asylum_seekers) || 0) +
+      (Number(r.idps) || 0) +
+      (Number(r.oip) || 0);
+    byYear[y] = (byYear[y] ?? 0) + total;
+  }
+  const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
+  if (years.length < 1) throw new Error("UNHCR: could not aggregate any yearly totals");
+  const latestYear = years[0];
+  const prevYear = years[1] ?? latestYear;
+  const latest = byYear[latestYear] / 1_000_000; // persons -> millions
+  const prev = byYear[prevYear] / 1_000_000;
+
+  // Plausibility guard: UNHCR's published global figure has sat roughly in
+  // [100M, 130M] for the past few years. A result far outside a generous
+  // [50M, 300M] band is a stronger signal of a parsing bug than reality.
+  if (latest < 50 || latest > 300) {
+    throw new Error(
+      `UNHCR: aggregated global total (${latest.toFixed(1)}M) is outside the plausible [50M, 300M] range \u2014 see the [diag] log lines above`
+    );
+  }
+
+  return {
+    id: "forcibly-displaced",
+    name: "Forcibly Displaced Persons \u2014 Global Total (UNHCR)",
+    value: `${latest.toFixed(1)}M`,
+    change: fmtSigned(latest - prev, 1, "M"),
+    series: "ristra",
+    cadence: "annual",
+    asOf: String(latestYear),
+    note: "Refugees + asylum-seekers + IDPs + other people in need of international protection, per UNHCR's own \u2018forcibly displaced\u2019 definition. Annual release \u2014 value is static between updates.",
+  };
+}
+fetchDisplacement.indicatorId = "forcibly-displaced";
+
+// The active core-ticker pipeline. Each fetcher carries its own
+// `.indicatorId` (set above) so a failure can fall back to whatever was
+// last published for that id, without a separate name->id lookup table.
+const TICKER_FETCHERS = [
+  fetchFred,
+  fetchLaborShare,
+  fetchDollarIndex,
+  fetchBls,
+  fetchWealthShare,
+  fetchIncomeShareUS,
+  fetchHousingPriceIndex,
+  fetchSPR,
+  fetchEnergyVolatility,
+  fetchDisplacement,
+];
+
+// =====================================================================
+// Module chart-data fetchers (each writes its own sibling JSON file,
+// separate from ticker-data.json, since each is a chart series/breakdown
+// rather than a single ticker value)
+// =====================================================================
+
+// ---- OWID (V-Dem-sourced): US Liberal Democracy Index, full annual series ----
+// Powers the Democracy (Pillar 1) panel. Reuses parseCsvLine() but not
+// fetchOwidPercentIndicator(), since LDI is a plain 0\u20131 index, not a
+// percent column.
+// CAVEAT: written without a live test call — the "liberal-democracy-index"
+// grapher slug and column layout are inferred, not confirmed.
 async function fetchDemocracySeries() {
   const url =
     "https://ourworldindata.org/grapher/liberal-democracy-index.csv?v=1&csvType=full&useColumnShortNames=false";
@@ -501,11 +532,7 @@ async function fetchDemocracySeries() {
   const latest = rows[rows.length - 1];
   const prev = rows[rows.length - 2];
 
-  // PLAUSIBILITY GUARD, same convention as fetchDisplacement(): LDI is
-  // bounded [0, 1] by construction. A parsed value outside a generous
-  // [0, 1] band is a stronger signal of a column-mapping bug (e.g. picking
-  // up a code/margin-of-error column instead of the index itself) than of
-  // reality.
+  // Plausibility guard: LDI is bounded [0, 1] by construction.
   if (latest.value < 0 || latest.value > 1) {
     throw new Error(`OWID: parsed liberal-democracy-index value (${latest.value}) outside the valid [0, 1] range \u2014 likely a column mismatch`);
   }
@@ -518,120 +545,12 @@ async function fetchDemocracySeries() {
   };
 }
 
-// ---- FRED: US Home Price Index, YoY growth (asset-wealth inequality framing) ----
-// Pillar 2 fit, added 2026-09-11 by request: the ticker VALUE is the
-// year-over-year appreciation rate, not the raw index level (an index
-// level on a Jan-2000=100 base is meaningless without context, and a bare
-// price series would read as supply-and-demand economics anyway \u2014 the
-// same relevance problem DECISIONS.md already flagged and resolved for
-// energy-price-volatility). Framed per Piketty's capital-appreciation
-// logic applied to housing: home-price gains accrue to existing owners as
-// asset wealth while pricing out renters/non-owners, so faster
-// appreciation reads as a faster-widening asset-wealth gap \u2014 which is
-// why "change" here is the MONTH-OVER-MONTH SHIFT IN THE YOY RATE
-// (acceleration/deceleration of that gap), not a simple level diff.
-//
-// Deliberately NOT given a `polarity` field, unlike wealth-share-top1 /
-// income-share-top1-us: those measure concentration at the top directly,
-// so "up = bad" is unambiguous. A national home-price index instead
-// reflects a broad (~65%) homeowner population's asset gains, with mixed
-// effects (existing owners gain, renters/prospective buyers lose) that
-// don't reduce to a single normative direction the way top-1%-share does.
-// Per DECISIONS.md's own stated bar ("equally clear, stated normative
-// grounding"), that's not met here, so this stays series-token-colored
-// like the majority of this project's other indicators.
-//
-// CAVEAT (same pattern as fetchSPR/fetchEnergyVolatility): written
-// without a live test call (no network egress in this sandbox) \u2014 the
-// FRED observations JSON shape matches every other verified FRED fetcher
-// in this file, so that risk is low, but confirm CSUSHPISA is still the
-// right series id (S&P/Case-Shiller U.S. National Home Price Index,
-// seasonally adjusted, monthly) on the first real run \u2014 FRED has a
-// separate NSA variant (CSUSHPINSA) that would reintroduce seasonal
-// noise into the YoY figure if swapped in by mistake.
-async function fetchHousingPriceIndex() {
-  const key = process.env.FRED_API_KEY;
-  if (!key) throw new Error("FRED_API_KEY not set");
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=CSUSHPISA&api_key=${key}&file_type=json&sort_order=desc&limit=14`;
-  const data = await safeFetchJson(url);
-  const obs = (data.observations ?? [])
-    .filter((o) => o.value !== ".")
-    .map((o) => ({ date: o.date, value: parseFloat(o.value) }));
-  if (obs.length < 14) throw new Error("FRED: not enough usable CSUSHPISA observations for two YoY points");
-
-  const yoy = (i) => (obs[i].value / obs[i + 12].value - 1) * 100;
-  const latestYoy = yoy(0);
-  const prevYoy = yoy(1);
-
-  return {
-    id: "housing-price-index",
-    name: "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)",
-    value: `${latestYoy >= 0 ? "+" : ""}${latestYoy.toFixed(1)}%`,
-    change: fmtSigned(latestYoy - prevYoy, 1, "pp"),
-    series: "sage",
-    cadence: "monthly",
-    asOf: obs[0].date,
-    note: "Value is year-over-year home-price appreciation; change is the month-over-month shift in that YoY rate (i.e. whether asset-wealth gains are accelerating or decelerating), not a simple index-point diff.",
-  };
-}
-
-
-// ---- EIA: Strategic Petroleum Reserve, weekly crude oil ending stocks ----
-// Pillar 4 fit: an SPR level is a held strategic energy buffer/leverage,
-// i.e. energy security as state power (Mitchell, Carbon Democracy) — not
-// a bare commodity price, which DECISIONS.md's Pillar 4 test excludes.
-// Series PET.WCSSTUS1.W is published in thousand barrels; converted to
-// million barrels below to match how SPR levels are conventionally
-// reported. NOTE: this fetcher was written without being able to make a
-// live test call (sandboxed, no network egress here) — the `/seriesid/`
-// shortcut and its JSON shape (response.data[].period / .value) are
-// per EIA's documented APIv2 emulation of legacy v1 series IDs, but
-// verify the very first real run's output shape before trusting it
-// unattended; adjust the `rows[i].value` / `.period` accessors below if
-// the actual response nests differently.
-async function fetchSPR() {
-  const key = process.env.EIA_API_KEY;
-  if (!key) throw new Error("EIA_API_KEY not set");
-  const url = `https://api.eia.gov/v2/seriesid/PET.WCSSTUS1.W?api_key=${key}&sort[0][column]=period&sort[0][direction]=desc&offset=0&length=2`;
-  const data = await safeFetchJson(url);
-  const rows = data?.response?.data ?? [];
-  if (rows.length < 1) throw new Error("EIA: no usable SPR observations");
-  const latestRaw = parseFloat(rows[0].value);
-  const prevRaw = rows.length > 1 ? parseFloat(rows[1].value) : latestRaw;
-  const latest = latestRaw / 1000; // thousand bbl -> million bbl
-  const prev = prevRaw / 1000;
-  return {
-    id: "spr-level",
-    name: "Strategic Petroleum Reserve \u2014 Crude Oil Stocks (EIA, weekly)",
-    value: `${latest.toFixed(1)} MMbbl`,
-    change: fmtSigned(latest - prev, 1, " MMbbl"),
-    series: "ochre",
-    cadence: "weekly",
-    asOf: String(rows[0].period),
-  };
-}
-
-
-// ---- FRED: US Household Income Gini Ratio, full annual time series ----
-// Powers the Distributional Justice (Pillar 2) panel's line chart — see
-// index.html and DECISIONS.md, "Distributional Justice module
-// visualization." NOT the same thing as fetchGini() further below: that
-// function pulls a single-point annual read from Census ACS for a
-// prospective *ticker* value and is deliberately not wired into the
-// active fetchers pipeline (see its own comment for why). This fetcher
-// instead pulls the full history of GINIALLRH (Census-sourced, delivered
-// via FRED) to drive a genuine multi-year line, and reuses FRED_API_KEY —
-// no new secret, same reasoning as fetchDollarIndex/fetchLaborShare.
-// Chosen over FRED's SIPOVGINIUSA (World Bank series) because GINIALLRH
-// is fresher (through 2024, last updated 2025-09-09 per FRED's page as
-// checked 2026-09-11) and keeps this indicator's provenance consistent
-// with the Census-sourced framing used elsewhere on this dashboard.
-// CAVEAT (same pattern as fetchSPR/fetchGenerationMix): written without a
-// live test call in this sandbox (no network egress) — the FRED
-// observations JSON shape (observations[].date / .value) matches every
-// other FRED fetcher already verified in this file (fetchFred,
-// fetchLaborShare, fetchDollarIndex), so the shape risk here is low, but
-// verify the first real Action run regardless.
+// ---- FRED: US Household Income Gini Ratio, full annual series ----
+// Powers the Distributional Justice (Pillar 2) panel. NOT the same thing
+// as the dormant fetchGini() below (a single-point Census ACS read with
+// no year-over-year diff) — this pulls the full GINIALLRH history.
+// CAVEAT: written without a live test call — shape matches every other
+// verified FRED fetcher in this file, so risk is low, but verify.
 async function fetchGiniSeries() {
   const key = process.env.FRED_API_KEY;
   if (!key) throw new Error("FRED_API_KEY not set");
@@ -653,29 +572,13 @@ async function fetchGiniSeries() {
   };
 }
 
-// ---- FRED: Student Loans Owned and Securitized (structural-power/leverage framing) ----
-// Powers the Structural Power & Political Economy (Pillar 1) panel's line
-// chart — see index.html and DECISIONS.md, "Structural Power module
-// visualizations." Pillar 1 fit (Strange; Harvey): the balance itself \u2014
-// debt that has been packaged and is HELD by financial institutions \u2014
-// is the leverage signal, the same way the SPR ticker indicator's bare
-// reserve level (not a derived rate) was accepted as the Pillar 4 leverage
-// signal. No YoY/ratio transformation needed here for the same reason.
-// Reuses FRED_API_KEY \u2014 no new secret.
-//
-// SLOASM (Board of Governors G.19, monthly, millions of USD, NSA) only
-// actually reports on a quarterly cadence within its monthly slots (Mar/
-// Jun/Sep/Dec populated, other months come back as "."), confirmed via a
-// live fetch of https://fred.stlouisfed.org/data/SLOASM on 2026-09-11 \u2014
-// this fetcher filters those empty months out rather than treating them
-// as a bug. Values converted from millions to trillions of USD for
-// display (matches the SPR indicator's unit-conversion convention).
-//
-// CAVEAT: unlike fetchSPR/fetchGenerationMix/fetchGiniSeries, this
-// specific FRED series_id + JSON shape (observations[].date/.value) WAS
-// confirmed live on 2026-09-11 (both the series page and the full data
-// table), so this fetcher carries less shape-risk than those \u2014 no
-// "verify against a live response" caveat needed here.
+// ---- FRED: Student Loans Owned and Securitized ----
+// Powers the (currently unmounted, see DECISIONS.md) Structural Power
+// panel. SLOASM is nominally "monthly" but only actually populates
+// Mar/Jun/Sep/Dec (other months come back as "." from FRED) — filtered
+// out below, not a bug. Values converted from millions to trillions USD.
+// This fetcher's series id + JSON shape WAS confirmed against a live
+// response (2026-09-11), unlike most others in this file.
 async function fetchStudentLoanSeries() {
   const key = process.env.FRED_API_KEY;
   if (!key) throw new Error("FRED_API_KEY not set");
@@ -685,7 +588,7 @@ async function fetchStudentLoanSeries() {
   if (obs.length < 2) throw new Error("FRED: not enough usable SLOASM observations");
   const series = obs.map((o) => ({
     date: o.date,
-    trillions: Math.round((parseFloat(o.value) / 1_000_000) * 1000) / 1000, // millions -> trillions, 3dp
+    trillions: Math.round((parseFloat(o.value) / 1_000_000) * 1000) / 1000,
   }));
   const latest = series[series.length - 1];
   const prev = series[series.length - 2];
@@ -698,19 +601,11 @@ async function fetchStudentLoanSeries() {
 }
 
 // ---- EIA: U.S. electricity generation mix, bucketed fossil/nuclear/renewables ----
-// Powers the Energy module's generation-mix stacked area chart (see
-// index.html, DECISIONS.md "Energy module visualizations"). Pillar 4 fit:
-// framed as transition politics (Malm; Riofrancos; Mitchell), not a bare
-// supply/demand mix — same reasoning as the SPR ticker indicator.
-//
-// CAVEAT (same pattern as fetchSPR below): written without a live test call
-// (sandboxed, no network egress here). The fueltypeid codes below and the
-// "all sectors combined" sectorid ("99") are per EIA's documented APIv2
-// browser for electric-power-operational-data as of this writing, but were
-// NOT confirmed against a real response. Verify the first real Action run's
-// row shape (row.period / row.fueltypeid / row.generation) before trusting
-// this unattended — these facet values are the most likely thing to need
-// correcting, not the overall approach.
+// Powers the Energy module's stacked-area chart. Framed as transition
+// politics (Malm; Riofrancos; Mitchell), not a bare supply/demand mix.
+// CAVEAT: written without a live test call — verify fueltypeid/sectorid
+// facet values and the row shape (row.period/.fueltypeid/.generation) on
+// the first real run.
 async function fetchGenerationMix() {
   const key = process.env.EIA_API_KEY;
   if (!key) throw new Error("EIA_API_KEY not set");
@@ -718,7 +613,7 @@ async function fetchGenerationMix() {
   const FUEL_BUCKETS = {
     fossil: ["COW", "PEL", "NG"], // coal, petroleum liquids, natural gas
     nuclear: ["NUC"],
-    renewables: ["WND", "SUN", "DPV", "WAT", "GEO", "WWW"], // wind, utility solar, small-scale solar, hydro, geothermal, wood/waste
+    renewables: ["WND", "SUN", "DPV", "WAT", "GEO", "WWW"], // wind, utility/small-scale solar, hydro, geothermal, wood/waste
   };
   const allCodes = Object.values(FUEL_BUCKETS).flat();
   const codeToBucket = {};
@@ -735,7 +630,7 @@ async function fetchGenerationMix() {
     "sort[0][column]": "period",
     "sort[0][direction]": "desc",
     offset: "0",
-    length: String(allCodes.length * 8), // ~8 years' worth per fuel type, generously
+    length: String(allCodes.length * 8), // ~8 years' worth per fuel type
   });
   for (const code of allCodes) params.append("facets[fueltypeid][]", code);
 
@@ -756,9 +651,8 @@ async function fetchGenerationMix() {
   const periods = Object.keys(byPeriod).sort((a, b) => b.localeCompare(a));
   if (!periods.length) throw new Error("EIA: could not bucket any generation-mix rows");
 
-  // Drop the most recent period if it looks partial (well under the
-  // second-most-recent year's total) so a part-year doesn't render as a
-  // misleadingly low/high share.
+  // Drop the most recent period if it looks partial (well under the prior
+  // year's total) so a part-year doesn't render as a misleading share.
   const completePeriods = periods.filter((p, i) => {
     if (i === 0 && periods.length > 1) {
       const totalHere = Object.values(byPeriod[p]).reduce((s, v) => s + v, 0);
@@ -785,200 +679,18 @@ async function fetchGenerationMix() {
   return { asOf: completePeriods[0], series };
 }
 
-// ---- FRED: Energy price volatility (WTI crude, 20-trading-day realized vol) ----
-// Pillar 4 leverage framing, added 2026-09-11 by request: the SIGNAL here
-// is the *swing*, not the price level. A bare WTI spot price would fail
-// the Pillar 4 relevance test the same way DECISIONS.md already excludes
-// it for the SPR indicator ("not a bare commodity price"). Realized
-// volatility \u2014 how sharply the price is moving \u2014 is instead read as
-// exposure to supply-chain disruption and geopolitical leverage over
-// energy infrastructure (Klein; Riofrancos; Malm; Mitchell): a calm
-// market and a market being whipsawed by an embargo, a pipeline attack,
-// or an OPEC+ cut convey very different things about who holds leverage,
-// even when the price is not stated at all.
+// ---- UNHCR: Forcibly displaced persons by region of origin ----
+// Powers the Peace and Conflict (Pillar 3) panel's grouped bar chart — a
+// cross-sectional snapshot (latest year), not a trend line.
 //
-// Method: pull the most recent ~45 daily WTI closes (DCOILWTICO, which is
-// NOT every calendar day \u2014 it skips weekends/holidays, so we over-fetch
-// and then take the first 21 usable closes to get 20 daily returns), take
-// day-over-day log returns, and report the annualized stdev (stdev * sqrt(252))
-// as a percent. "change" compares that to the same calculation run one day
-// earlier (i.e. the trailing 20-return window shifted back by one
-// observation), so the ticker still shows a meaningful day-over-day delta
-// for a rolling-window statistic rather than a fabricated one.
-//
-// CAVEAT (same pattern as fetchSPR/fetchGenerationMix): written without a
-// live test call (no network egress in this sandbox) \u2014 the FRED
-// observations JSON shape matches every other FRED fetcher already
-// verified in this file, so that risk is low, but the volatility math
-// itself (window size, log-return convention, annualization factor) has
-// not been sanity-checked against a real print. Verify the first real
-// Action run's value against an independent WTI-vol source before
-// trusting it unattended.
-async function fetchEnergyVolatility() {
-  const key = process.env.FRED_API_KEY;
-  if (!key) throw new Error("FRED_API_KEY not set");
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=DCOILWTICO&api_key=${key}&file_type=json&sort_order=desc&limit=45`;
-  const data = await safeFetchJson(url);
-  const obs = (data.observations ?? [])
-    .filter((o) => o.value !== ".")
-    .map((o) => ({ date: o.date, value: parseFloat(o.value) }))
-    .sort((a, b) => b.date.localeCompare(a.date)); // newest first
-
-  if (obs.length < 22) throw new Error("FRED: not enough usable DCOILWTICO observations for a 20-return window");
-
-  const logReturn = (newer, older) => Math.log(newer.value / older.value);
-
-  const stdevAnnualized = (window) => {
-    // window: newest-first array of closes; produces window.length - 1 returns
-    const returns = [];
-    for (let i = 0; i < window.length - 1; i++) returns.push(logReturn(window[i], window[i + 1]));
-    const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
-    const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
-    return Math.sqrt(variance) * Math.sqrt(252) * 100; // annualized, as a percent
-  };
-
-  const latestVol = stdevAnnualized(obs.slice(0, 21));   // most recent 20 returns
-  const prevVol = stdevAnnualized(obs.slice(1, 22));     // window shifted back one observation
-
-  return {
-    id: "energy-price-volatility",
-    name: "Energy Price Volatility \u2014 WTI 20-Day Realized Vol (FRED: DCOILWTICO)",
-    value: `${latestVol.toFixed(1)}%`,
-    change: fmtSigned(latestVol - prevVol, 1, "pp"),
-    series: "ochre",
-    cadence: "daily",
-    asOf: obs[0].date,
-    note: "Annualized realized volatility of WTI crude over the trailing 20 trading days \u2014 the swing, not the price level, is the Pillar 4 signal (supply-shock/geopolitical exposure).",
-  };
-}
-
-
-// ---- UNHCR: Forcibly Displaced Persons, Global Total (Pillar 3) ----
-// Added 2026-09-11 by request. Sum of refugees, asylum-seekers, IDPs, and
-// other people in need of international protection (UNHCR's own "forcibly
-// displaced" headline definition) \u2014 deliberately excludes the
-// stand-alone stateless-persons column, since UNHCR's own methodology
-// notes most stateless people were never displaced. Read per Galtung/
-// Fanon as the human toll of direct/structural violence and dominant-
-// power blowback, not a bare migration count \u2014 see DECISIONS.md,
-// Technical Requirements.
-//
-// UNHCR's Refugee Data Finder API (base https://api.unhcr.org/population/v1/)
-// is fully keyless \u2014 no registration, no new secret \u2014 chosen over
-// ACLED (already dropped from v1) and UCDP's GED API (free but needs its
-// own token) for that reason. Omitting both coo and coa params aggregates
-// every country pair into a single global row per the API's documented
-// behavior ("if not specified, data for this dimension will be summed and
-// aggregated to one row").
-//
-// Deliberately NO `polarity` field for now \u2014 see the DECISIONS.md entry
-// for why this is flagged as a candidate rather than decided here.
-//
-// UPDATE (2026-09-11): the first real Action run confirmed the field
-// names were fine all along (refugees/asylum_seekers/idps/oip, r.year) \u2014
-// the actual bug was coo_all=false&coa_all=false not aggregating
-// server-side as docs implied, combined with UNHCR's default 100-row page
-// cap silently truncating the result. See the fix comment inside the
-// function body and DECISIONS.md for the full root-cause writeup.
-async function fetchDisplacement() {
-  // ROOT CAUSE, REVISED (2026-09-12, after a live run returned a 15.0M
-  // global total against a real ~120M+): the 2026-09-11 "fix" below was
-  // itself based on a misreading of UNHCR's own docs. Per the API
-  // reference, coo/coa "if not specified, data for this dimension will be
-  // summed and aggregated to one row" \u2014 aggregation happens when the
-  // dimension is OMITTED, not when coo_all=true is set. coo_all=true does
-  // the opposite: it explicitly breaks out every origin country as its
-  // own row rather than aggregating them away. So the previous request
-  // (coo_all=true&coa_all=false) was fetching ordinary per-(origin,
-  // destination)-country-pair rows \u2014 there are far more than 1000 of
-  // those across a 3-year window \u2014 and summing only the first 1000 of
-  // them undercounted by roughly 8x. Fixed by dropping coo/coo_all/coa/
-  // coa_all entirely, so both dimensions aggregate server-side into a
-  // single row per year, which is what this ticker indicator actually
-  // wants. (fetchDisplacementByRegion() below legitimately needs the
-  // per-origin breakdown and keeps coo_all=true, but now correctly omits
-  // coa/coa_all so destinations aggregate away instead of also being
-  // broken out \u2014 see that function's own comment.)
-  const thisYear = new Date().getFullYear();
-  const url = `https://api.unhcr.org/population/v1/population/?yearFrom=${thisYear - 2}&yearTo=${thisYear}&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
-  const data = await safeFetchJson(url, { headers: { "User-Agent": BROWSER_UA } });
-  const rows = (data?.items ?? data?.data ?? []).filter((r) => r.year);
-  // DIAGNOSTIC: left in place to confirm the fix \u2014 with both dimensions
-  // omitted, this should show one row per year (row count \u2248 3 for a
-  // 3-year window), not the ~1000-row-capped shape from before.
-  console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
-  console.log("[diag] /population (global) row count:", rows.length);
-  if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
-
-  const byYear = {};
-  for (const r of rows) {
-    const y = Number(r.year);
-    const total =
-      (Number(r.refugees) || 0) +
-      (Number(r.asylum_seekers) || 0) +
-      (Number(r.idps) || 0) +
-      (Number(r.oip) || 0);
-    byYear[y] = (byYear[y] ?? 0) + total;
-  }
-  const years = Object.keys(byYear).map(Number).sort((a, b) => b - a);
-  if (years.length < 1) throw new Error("UNHCR: could not aggregate any yearly totals");
-  const latestYear = years[0];
-  const prevYear = years[1] ?? latestYear;
-  const latest = byYear[latestYear] / 1_000_000; // persons -> millions
-  const prev = byYear[prevYear] / 1_000_000;
-
-  // PLAUSIBILITY GUARD (added 2026-09-11, kept as defense-in-depth even
-  // after the real fix above): UNHCR's own published global figure has
-  // been in roughly the 100\u2013130M range for the past few years. A result
-  // far outside a generous [50M, 300M] band is a stronger signal of a
-  // parsing bug than of reality \u2014 fail loudly so main() falls back
-  // rather than publish an implausible "live" number.
-  if (latest < 50 || latest > 300) {
-    throw new Error(
-      `UNHCR: aggregated global total (${latest.toFixed(1)}M) is outside the plausible [50M, 300M] range \u2014 likely a field-name mismatch, see the [diag] log lines above`
-    );
-  }
-
-  return {
-    id: "forcibly-displaced",
-    name: "Forcibly Displaced Persons \u2014 Global Total (UNHCR)",
-    value: `${latest.toFixed(1)}M`,
-    change: fmtSigned(latest - prev, 1, "M"),
-    series: "ristra",
-    cadence: "annual",
-    asOf: String(latestYear),
-    note: "Refugees + asylum-seekers + IDPs + other people in need of international protection, per UNHCR's own \u2018forcibly displaced\u2019 definition. Annual release \u2014 value is static between updates.",
-  };
-}
-
-// ---- UNHCR: Forcibly displaced persons by region of origin (Pillar 3 panel chart) ----
-// Powers the Peace and Conflict (Pillar 3) panel's grouped bar chart \u2014
-// see index.html and DECISIONS.md, "Peace and Conflict module
-// visualizations." This is the dashboard's first non-time-series panel
-// chart: a cross-sectional snapshot of where displacement originates,
-// latest year only, not a trend \u2014 requested in place of a line chart.
-//
-// Region bucketing is built at fetch time from the API's own /countries/
-// endpoint (country -> UNHCR region), not a hardcoded country list, so
-// the grouping doesn't silently go stale if regional classifications
-// change. Uses coo_all=true to break out every origin country as its own
-// row, while omitting coa/coa_all entirely so each origin country's row
-// is already summed across every destination server-side \u2014 see the
-// REVISED ROOT CAUSE comment inside the function for why coa_all=false
-// (the previous approach) was wrong.
-//
-// UPDATE (2026-09-11): the first real Action run confirmed `c.region`
-// (e.g. "Southern Asia") is the correct field on /countries/ \u2014 no
-// field-name fix was needed there.
+// Region bucketing is built at fetch time from /countries (country ->
+// UNHCR region), not a hardcoded list. Uses coo_all=true to break out
+// every origin country as its own row while omitting coa/coa_all so each
+// origin's row is already summed across destinations server-side.
 async function fetchDisplacementByRegion() {
   const countriesUrl = `https://api.unhcr.org/population/v1/countries/?limit=300`;
   const countriesData = await safeFetchJson(countriesUrl, { headers: { "User-Agent": BROWSER_UA } });
   const countryRows = countriesData?.items ?? countriesData?.data ?? [];
-  // DIAGNOSTIC (added 2026-09-11 after the first real run returned only one
-  // region \u2014 see DECISIONS.md): print the raw shape of the first
-  // /countries row so the next Action log tells us the real field names
-  // instead of us guessing again. Safe to leave in \u2014 it only writes to
-  // the Action's own log, never to a committed JSON file.
   console.log("[diag] /countries sample row:", JSON.stringify(countryRows[0] ?? null));
   console.log("[diag] /countries row count:", countryRows.length);
   if (!countryRows.length) throw new Error("UNHCR: no usable /countries rows returned");
@@ -989,36 +701,16 @@ async function fetchDisplacementByRegion() {
     if (code) regionByCode[code] = region;
   }
 
-  // REVISED ROOT CAUSE (2026-09-12, after fetchDisplacement()'s 15.0M
-  // undercount exposed the same bug here): UNHCR's docs say a dimension
-  // "if not specified... will be summed and aggregated to one row" \u2014
-  // aggregation happens on OMISSION, not on passing coa_all=false. The
-  // previous request (coo_all=true&coa_all=false) was actually returning
-  // one row per (origin, destination) PAIR, not one row per origin
-  // summed across destinations \u2014 this function's own client-side
-  // byRegion summation happened to mostly paper over that (it sums
-  // whatever rows come back, regardless of whether each row is a full
-  // country total or one of several partial pair-rows for that country),
-  // but it was still at risk of the exact same undercount if any single
-  // origin country had more destination-pairs than fit under limit=1000
-  // alongside every other country's pairs. Fixed by dropping coa/coa_all
-  // entirely: each row is now already a full per-origin-country total,
-  // summed across all destinations server-side, so client-side summation
-  // here is now just "handle multiple rows if the API ever splits one
-  // origin across pages" rather than load-bearing for correctness.
   const thisYear = new Date().getFullYear();
   const popUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear}&coo_all=true&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
   let data = await safeFetchJson(popUrl, { headers: { "User-Agent": BROWSER_UA } });
   let rows = data?.items ?? data?.data ?? [];
-  // Fall back one year if the current year has no published rows yet
-  // (annual release, so the latest full year is often the prior one).
+  // Fall back one year if the current year has no published rows yet.
   if (!rows.length) {
     const fallbackUrl = `https://api.unhcr.org/population/v1/population/?year=${thisYear - 1}&coo_all=true&limit=1000&columns[]=refugees&columns[]=asylum_seekers&columns[]=idps&columns[]=oip`;
     data = await safeFetchJson(fallbackUrl, { headers: { "User-Agent": BROWSER_UA } });
     rows = data?.items ?? data?.data ?? [];
   }
-  // DIAGNOSTIC (same reason as above): print the raw shape of the first
-  // /population row and the total row count actually returned.
   console.log("[diag] /population sample row:", JSON.stringify(rows[0] ?? null));
   console.log("[diag] /population row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable by-origin population rows returned");
@@ -1041,58 +733,38 @@ async function fetchDisplacementByRegion() {
     .map(([region, total]) => ({ region, millions: Math.round((total / 1_000_000) * 100) / 100 }))
     .filter((d) => d.millions > 0)
     .sort((a, b) => b.millions - a.millions)
-    .slice(0, 7); // top regions; keeps the bar chart readable
+    .slice(0, 7); // top regions only, keeps the bar chart readable
 
   if (!series.length) throw new Error("UNHCR: could not bucket any by-origin rows into regions");
 
-  // SANITY CHECK (added 2026-09-11, after the first real run silently
-  // published a one-region chart \u2014 see DECISIONS.md): a real global
-  // breakdown should span at least a handful of regions. If parsing is
-  // broken (wrong field names, most rows falling through to 0 or to a
-  // single lookup hit), fewer than 3 nonzero regions is a stronger signal
-  // of a shape mismatch than of reality, so treat it as a failure and let
-  // main() fall back to the last published/placeholder data rather than
-  // publish a misleadingly sparse chart labeled "live."
+  // Sanity check: a real global breakdown should span several regions.
+  // Fewer than 3 nonzero regions is a stronger signal of a shape mismatch
+  // than of reality — fail loudly so main() falls back instead of
+  // publishing a misleadingly sparse chart labeled "live."
   if (series.length < 3) {
     throw new Error(
-      `UNHCR: only ${series.length} region(s) had nonzero totals (expected several) \u2014 likely a field-name mismatch in fetchDisplacementByRegion(), see the [diag] log lines above for the real response shape`
+      `UNHCR: only ${series.length} region(s) had nonzero totals (expected several) \u2014 see the [diag] log lines above`
     );
   }
 
   return { asOf: String(asOfYear ?? thisYear), series };
 }
 
-// ---- Lexicon-based discourse tagging: Moral Foundations Dictionary + NRC-style emotion lexicon ----
-// Powers the footer's "Discourse-tagging output format" module (see
-// index.html, DECISIONS.md "Discourse-tagging module"). Pillar 1 fit per
-// the Technical Requirements section: NLP/discourse analysis applied to
-// drivers of far-right and ethnonationalist political outcomes (Mudde;
-// Norris & Inglehart; Petter & Anton Törnberg).
+// =====================================================================
+// Discourse-tagging module: lexicon-based scoring of Congressional Record
+// floor speeches (Moral Foundations Dictionary + an NRC-style emotion
+// lexicon). Deliberately second-generation NLP (word-frequency matching),
+// chosen over an LLM call for interpretability/setup-lift/credibility —
+// see DECISIONS.md, "Discourse-tagging module."
 //
-// METHOD, chosen by explicit request over an LLM call (paid Anthropic API
-// or a locally-run open model): plain lexicon/word-frequency matching
-// against two established, citable academic dictionaries —
-//   - Moral Foundations Dictionary (Graham, Haidt & Nosek): care,
-//     fairness, loyalty, authority, purity.
-//   - An NRC-style emotion lexicon (Mohammad & Turney convention): anger,
-//     fear, joy, sadness, plus a positive/negative "tone" pair.
-// This is deliberately second-generation NLP by the Törnberg paper's own
-// typology — transparent, auditable word-counting, not context-sensitive
-// interpretation — chosen for exactly that transparency, for its much
-// lighter setup lift (no model weights, no runtime, no API key required
-// at all), and because citing these two specific, widely-used dictionaries
-// reads as more methodologically credible for a junior-researcher-scoped
-// demo than an unvalidated model call would. See DECISIONS.md for the full
-// tradeoff writeup.
-//
-// IMPORTANT CAVEAT: the two lexicons below are a small ILLUSTRATIVE
-// STARTER SUBSET (a dozen or so words per category), not the full
-// published MFD 2.0 / NRC EmoLex files. Swap in the full dictionaries
-// (both freely downloadable for academic use) before treating this
-// module's output as a real research instrument rather than a demo.
-// Entries may end in "*" as a prefix wildcard, mirroring the real
-// dictionaries' own convention (e.g. "author*" matches "authority",
-// "authoritarian", "authoritative").
+// IMPORTANT: the lexicons below are a small illustrative STARTER SUBSET,
+// not the full published MFD 2.0 / NRC EmoLex files. Swap in the full
+// dictionaries before treating this module's output as a real research
+// instrument. Entries may end in "*" as a prefix wildcard (e.g. "author*"
+// matches "authority", "authoritarian"), mirroring the real dictionaries'
+// own convention.
+// =====================================================================
+
 const MORAL_FOUNDATIONS_LEXICON = {
   care: ["care", "compassion", "suffer*", "cruel*", "kind*", "hurt*", "protect*", "safe*", "harm*", "empath*", "nurtur*", "victim*"],
   fairness: ["fair*", "equal*", "justice", "rights", "unfair*", "cheat*", "bias*", "honest*", "discriminat*", "impartial*", "corrupt*"],
@@ -1109,9 +781,8 @@ const EMOTION_LEXICON = {
   negative: ["bad", "fail*", "threat*", "crisis", "declin*", "harm*", "damag*", "weak*", "danger*", "corrupt*"],
 };
 
-// Compiles a lexicon (category -> array of literal/"prefix*" entries) into
-// per-category RegExp arrays, so scoring is a single pass over the token
-// list rather than repeated substring scans.
+// Compiles a lexicon (category -> literal/"prefix*" entries) into
+// per-category RegExps, so scoring is a single pass over the token list.
 function compileLexicon(lexicon) {
   const compiled = {};
   for (const [category, entries] of Object.entries(lexicon)) {
@@ -1136,46 +807,20 @@ function stripHtml(html) {
     .trim();
 }
 
-// Scores one text against both compiled lexicons. Returns rates per 1,000
-// words (not raw counts) so a long floor speech and a short one-minute
-// statement are comparable, plus the dominant category in each lexicon
-// (requiring at least MIN_MATCHES raw hits so a single stray word on a
-// short text doesn't get reported as "dominant").
+// A category is "dominant" only once it clears MIN_MATCHES raw hits, so a
+// single stray word on a short text isn't reported as dominant.
 const MIN_MATCHES = 2;
-// "Vibe of the Congress" parameters (see DECISIONS.md, "Discourse-tagging
-// module"). SOURCE SWAP (2026-09-13, by request): this module now pulls
-// from GovInfo's Congressional Hearings collection (CHRG) instead of the
-// Congressional Record (CREC) \u2014 see the fetchDiscourseTags() header
-// comment for the full rationale (density of substantive rhetoric vs.
-// CREC's mostly-procedural daily granules).
-//
-// UNIT CHANGE: with CREC, "one entry per calendar day, walk back up to N
-// days" was a natural framing \u2014 there is exactly one CREC package per
-// legislative day. Hearings don't work that way: multiple committees can
-// hold hearings on the same date, and many days have none at all. So the
-// unit here is now "one entry per qualifying HEARING PACKAGE," walking
-// backward through the most recent packages regardless of date, not "one
-// per calendar day." DISCOURSE_LOOKBACK_DAYS is widened accordingly (180
-// vs. CREC's 21) because hearing transcripts are also typically finalized
-// and published on GovInfo weeks-to-months after the hearing itself
-// occurred (unlike CREC, which publishes same/next legislative day) \u2014 a
-// 21-day window would likely come up empty most runs. This trades
-// "trailing days" recency framing for "most recent available hearings,"
-// which may span a wider and less predictable date range than the old
-// CREC cards did; each card's date now reflects the hearing date, not
-// necessarily anything close to today.
-const DISCOURSE_LOOKBACK_DAYS = 180;
+const DISCOURSE_LOOKBACK_DAYS = 21;
 const DISCOURSE_TARGET_COUNT = 4;
 
+// Scores one text against both lexicons: rates per 1,000 words (so texts
+// of different lengths are comparable), the dominant category in each
+// lexicon, and up to 5 example matched words per category (surfaced in
+// the UI instead of a prose excerpt, for auditability).
 function scoreText(text) {
   const tokens = (text.toLowerCase().match(/[a-z']+/g) || []);
   const wordCount = tokens.length;
 
-  // Returns both the raw hit count and up to 5 distinct example words that
-  // actually matched \u2014 the matched-word list is what gets surfaced in the
-  // UI (see index.html), since showing the literal dictionary hits is more
-  // auditable/interpretable than a prose excerpt. See DECISIONS.md,
-  // "Discourse-tagging module" for why this replaced a raw text excerpt.
   const scoreCategory = (compiledCategory) => {
     const hits = [];
     for (const tok of tokens) {
@@ -1186,23 +831,15 @@ function scoreText(text) {
 
   const rate = (raw) => (wordCount > 0 ? Math.round((raw / wordCount) * 1000 * 10) / 10 : 0);
 
-  const mfdRaw = {};
-  const mfdRate = {};
-  const mfdMatched = {};
+  const mfdRaw = {}, mfdRate = {}, mfdMatched = {};
   for (const [cat, res] of Object.entries(COMPILED_MFD)) {
     const { raw, matched } = scoreCategory(res);
-    mfdRaw[cat] = raw;
-    mfdRate[cat] = rate(raw);
-    mfdMatched[cat] = matched;
+    mfdRaw[cat] = raw; mfdRate[cat] = rate(raw); mfdMatched[cat] = matched;
   }
-  const emoRaw = {};
-  const emoRate = {};
-  const emoMatched = {};
+  const emoRaw = {}, emoRate = {}, emoMatched = {};
   for (const [cat, res] of Object.entries(COMPILED_EMOTION)) {
     const { raw, matched } = scoreCategory(res);
-    emoRaw[cat] = raw;
-    emoRate[cat] = rate(raw);
-    emoMatched[cat] = matched;
+    emoRaw[cat] = raw; emoRate[cat] = rate(raw); emoMatched[cat] = matched;
   }
 
   const dominant = (rawObj, rateObj, excludeKeys = []) => {
@@ -1212,12 +849,12 @@ function scoreText(text) {
       if (raw < MIN_MATCHES) continue;
       if (!best || rateObj[cat] > rateObj[best]) best = cat;
     }
-    return best; // null if nothing clears MIN_MATCHES
+    return best;
   };
 
   const dominantFoundation = dominant(mfdRaw, mfdRate);
   const dominantEmotion = dominant(emoRaw, emoRate, ["positive", "negative"]);
-  const toneScore = mfdRaw ? Math.round((emoRate.positive - emoRate.negative) * 10) / 10 : 0;
+  const toneScore = Math.round((emoRate.positive - emoRate.negative) * 10) / 10;
 
   return {
     wordCount,
@@ -1230,16 +867,11 @@ function scoreText(text) {
   };
 }
 
-// Builds a context excerpt centered on the FIRST matched dictionary word,
-// rather than a blind first-N-characters slice \u2014 added by request so cards
-// show real surrounding context instead of only a bare word list (see
-// DECISIONS.md, "Discourse-tagging module," the excerpt-context entry).
-// Falls back to a plain lead-in slice if no matched word can be located
-// (shouldn't happen for an entry that already cleared MIN_MATCHES, but
-// kept defensive). Congressional hearing transcript text (like Congressional
-// Record floor-speech text before it) is a US government work product, not
-// subject to copyright, so quoting a window of it verbatim is not a
-// reproduction concern the way an external copyrighted source would be.
+// Builds a context excerpt centered on the FIRST matched dictionary word
+// (not a blind first-N-characters slice), so cards show real surrounding
+// context. Congressional Record floor-speech text is a US government work
+// product, not subject to copyright, so quoting a verbatim window of it
+// isn't a reproduction concern.
 function buildExcerpt(text, matchedWords, windowChars = 160) {
   const words = [...new Set((matchedWords || []).filter(Boolean))];
   let pos = -1;
@@ -1256,116 +888,63 @@ function buildExcerpt(text, matchedWords, windowChars = 160) {
   return (start > 0 ? "\u2026" : "") + text.slice(start, end).trim() + (end < text.length ? "\u2026" : "");
 }
 
-
-// SOURCE SWAP (2026-09-13, by request \u2014 see DECISIONS.md, "Discourse-
-// tagging module"): switched from the Congressional Record (CREC) to
-// GovInfo's Congressional Hearings collection (CHRG). Reason: a live
-// screenshot (2026-09-12) showed 3 of 4 footer cards landing on
-// "Mixed / below threshold," and the root cause traced to CREC's own
-// content mix, not a code bug \u2014 most CREC granules on any given day are
-// procedural boilerplate (chamber openers, the Pledge of Allegiance,
-// page headers) that never clears MIN_MATCHES; only a small fraction of
-// a day's granules are substantive floor rhetoric. Hearing transcripts
-// are structurally different: they're member Q&A and witness testimony
-// on live contested topics (immigration, border security, etc.), which
-// is exactly where moral/emotional lexicon hits concentrate \u2014 much
-// higher expected hit density per granule than CREC's daily digest mix.
-// Still an official GovInfo/GPO collection (same "US government work
-// product, not copyrighted" provenance as CREC), fits the already-logged
-// input scope ("public speech transcripts... not private citizens'
-// social media"), and reuses the same collections -> granules ->
-// granule-text API shape and DEMO_KEY access \u2014 so this is a data-source
-// swap, not an infrastructure rebuild.
+// Walks backward through up to DISCOURSE_LOOKBACK_DAYS of CREC packages,
+// scoring every floor-speech candidate within each day and keeping only
+// that day's single strongest QUALIFYING granule; a day with nothing that
+// clears MIN_MATCHES is skipped entirely (not padded), until
+// DISCOURSE_TARGET_COUNT entries are collected or the window runs out.
 //
-// STRUCTURAL DIFFERENCE FROM CREC (see the DISCOURSE_LOOKBACK_DAYS
-// comment above): CHRG packageIds (e.g. "CHRG-114jhrg94577") do NOT embed
-// a date the way CREC packageIds do ("CREC-2026-09-10") \u2014 confirmed
-// against GovInfo's own documented CHRG package shape. So this fetcher
-// makes one extra call per candidate package, packages/{id}/summary, to
-// read dateIssued/heldDates \u2014 CAVEAT: the summary endpoint's exact field
-// names for CHRG were read from a GovInfo-published example package
-// object, not a live test call in this sandbox; verify the first real
-// Action run's response shape before trusting this unattended, same
-// caveat convention as fetchSPR/fetchGenerationMix/fetchGiniSeries.
-// isFloorSpeech() (HOUSE/SENATE granuleClass) doesn't apply to hearings
-// (no such class distinction), so it's replaced with isSubstantive(), a
-// front-matter-title exclusion filter (index/appendix/cover material)
-// rather than a positive-match filter \u2014 hearing packages are mostly
-// substantive content already, unlike CREC's daily-digest-heavy mix.
+// GovInfo/api.data.gov accepts the shared "DEMO_KEY" with no registration
+// at a low rate limit; GOVINFO_API_KEY is an optional personal-key upgrade.
 async function fetchDiscourseTags() {
   const key = process.env.GOVINFO_API_KEY || "DEMO_KEY";
 
-  // Fetch a wide window of hearing packages up front (one call), then
-  // walk them most-recent-first \u2014 fewer requests against the shared
-  // DEMO_KEY's low rate limit than re-querying per candidate.
   const since = new Date(Date.now() - DISCOURSE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) + "T00:00:00Z";
-  const collectionsUrl = `https://api.govinfo.gov/collections/CHRG/${since}?offsetMark=*&pageSize=${DISCOURSE_TARGET_COUNT * 15}&api_key=${key}`;
+  const collectionsUrl = `https://api.govinfo.gov/collections/CREC/${since}?offsetMark=*&pageSize=${DISCOURSE_LOOKBACK_DAYS + 5}&api_key=${key}`;
   const collectionsData = await safeFetchJson(collectionsUrl);
   const packages = collectionsData?.packages ?? [];
-  // DIAGNOSTIC (added after the first live run came back with "no
-  // qualifying granules found" and no visibility into why \u2014 same
-  // convention as the UNHCR fetchers' [diag] lines): confirms whether the
-  // shared DEMO_KEY's low rate limit (30/hr, 50/day) is the actual
-  // bottleneck, vs. a genuine lack of qualifying hearings, vs. a
-  // summary/granule field-name mismatch. Also logs which key is actually
-  // in effect \u2014 if GOVINFO_API_KEY isn't wired through the workflow's
-  // env block, this silently falls back to DEMO_KEY and every call after
-  // the shared quota is exhausted fails, caught per-package below and
-  // easy to mistake for "there just aren't enough qualifying hearings."
-  console.log(`[diag] discourse: using ${key === "DEMO_KEY" ? "shared DEMO_KEY (low quota, 30/hr \u2014 50/day)" : "a configured GOVINFO_API_KEY"}`);
-  console.log(`[diag] discourse: collections/CHRG returned ${packages.length} package(s)`);
-  if (!packages.length) throw new Error("GovInfo: no recent CHRG packages found in the lookback window");
+  if (!packages.length) throw new Error("GovInfo: no recent CREC packages found");
 
-  // Trust the collections response's own ordering only as a starting
-  // point \u2014 confirmed per-package publish date below via a summary call,
-  // then re-sort on that, since (unlike CREC) packageId itself carries no
-  // date to sort on and lastModified reflects GovInfo processing time, not
-  // when the hearing was actually held.
-  const isSubstantive = (g) => !/front matter|index|appendix|cover|errata|table of contents/i.test(g.title ?? "");
+  // Sort most-recent-first by the date embedded in packageId
+  // ("CREC-YYYY-MM-DD") rather than trusting the response's own ordering.
+  const sorted = [...packages]
+    .filter((p) => /CREC-\d{4}-\d{2}-\d{2}/.test(p.packageId ?? ""))
+    .sort((a, b) => b.packageId.localeCompare(a.packageId));
+
+  const isFloorSpeech = (g) => {
+    const cls = (g.granuleClass ?? g.docClass ?? "").toUpperCase();
+    if (cls) return cls === "HOUSE" || cls === "SENATE";
+    return !/daily digest|front matter/i.test(g.title ?? "");
+  };
 
   const entries = [];
-  const seenPackages = new Set();
-  // Tallies for the [diag] summary below \u2014 lets the Action log
-  // distinguish "ran out of quota" from "genuinely nothing qualified"
-  // from "summary/granule shape didn't match" without re-reading every
-  // per-package [warn] line individually.
-  const skipTally = { noSummaryDate: 0, noGranules: 0, nothingCleared: 0, requestError: 0 };
+  const seenDates = new Set();
 
-  for (const pkg of packages) {
+  for (const pkg of sorted) {
     if (entries.length >= DISCOURSE_TARGET_COUNT) break;
     const packageId = pkg.packageId;
-    if (!packageId || seenPackages.has(packageId)) continue;
-    seenPackages.add(packageId);
+    const date = packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1];
+    if (!date || seenDates.has(date)) continue;
+    seenDates.add(date);
 
     try {
-      // One extra call vs. the CREC version: CHRG packageIds don't embed
-      // a date, so pull it from the package's own summary metadata.
-      const summaryUrl = `https://api.govinfo.gov/packages/${packageId}/summary?api_key=${key}`;
-      const summary = await safeFetchJson(summaryUrl);
-      const date = (summary?.heldDates?.[0] ?? summary?.dateIssued ?? "").slice(0, 10);
-      if (!date) { skipTally.noSummaryDate++; continue; } // can't place this hearing in time; skip rather than mislabel it
-
       const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
       const granulesData = await safeFetchJson(granulesUrl);
       const allGranules = granulesData?.granules ?? [];
-      if (!allGranules.length) { skipTally.noGranules++; continue; } // no granules for this hearing; try the next one
+      if (!allGranules.length) continue; // no granules this day; try the next-oldest package
 
-      const substantive = allGranules.filter(isSubstantive);
-      const candidates = (substantive.length ? substantive : allGranules).slice(0, 8);
+      const floorSpeech = allGranules.filter(isFloorSpeech);
+      const candidates = (floorSpeech.length ? floorSpeech : allGranules).slice(0, 8);
 
-      // Score every candidate granule in this hearing, but keep only the
-      // single strongest QUALIFYING one (highest combined dominant-
-      // category rate) \u2014 one hearing contributes at most one card, same
-      // "keep the best, skip if nothing clears threshold" design as CREC.
       let best = null;
       for (const g of candidates) {
         try {
           const htmUrl = `https://api.govinfo.gov/packages/${packageId}/granules/${g.granuleId}/htm?api_key=${key}`;
           const html = await safeFetchText(htmUrl);
           const text = stripHtml(html);
-          if (text.length < 200) continue; // skip near-empty granules
+          if (text.length < 200) continue;
           const scored = scoreText(text);
-          if (!scored.dominantFoundation && !scored.dominantEmotion) continue; // doesn't clear MIN_MATCHES \u2014 not a candidate
+          if (!scored.dominantFoundation && !scored.dominantEmotion) continue; // below MIN_MATCHES
           const strength =
             (scored.dominantFoundation ? scored.moralFoundations[scored.dominantFoundation] : 0) +
             (scored.dominantEmotion ? scored.emotions[scored.dominantEmotion] : 0);
@@ -1377,7 +956,7 @@ async function fetchDiscourseTags() {
         }
       }
 
-      if (!best) { skipTally.nothingCleared++; continue; } // nothing in this hearing cleared threshold; try the next one
+      if (!best) continue; // nothing this day cleared threshold
 
       const matchedWords = [
         ...(best.scored.dominantFoundation ? best.scored.matchedKeywords[best.scored.dominantFoundation] ?? [] : []),
@@ -1391,34 +970,27 @@ async function fetchDiscourseTags() {
         ...best.scored,
       });
     } catch (err) {
-      skipTally.requestError++;
       console.error(`[warn] discourse-tagging: skipped package ${packageId}: ${err.message}`);
     }
   }
 
-  console.log(`[diag] discourse: examined ${seenPackages.size} package(s), kept ${entries.length}; skipped \u2014 no summary date: ${skipTally.noSummaryDate}, no granules: ${skipTally.noGranules}, nothing cleared threshold: ${skipTally.nothingCleared}, request errors (check for 429/rate-limit): ${skipTally.requestError}`);
-
-  if (!entries.length) throw new Error("GovInfo: no qualifying granules found across recent CHRG hearings in the lookback window");
-
-  // Most-recent-hearing-first, by actual held date \u2014 not collections-
-  // response order, which reflects GovInfo processing/modification time
-  // rather than when each hearing was held.
-  entries.sort((a, b) => b.date.localeCompare(a.date));
+  if (!entries.length) throw new Error("GovInfo: no qualifying granules found in the trailing lookback window");
 
   return {
     asOf: entries[0]?.date ?? null,
-    source: "GovInfo Congressional Hearings (CHRG)",
+    source: "GovInfo Congressional Record (CREC)",
     method: "Lexicon-based scoring \u2014 Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
     entries,
   };
 }
 
-// NOT in the `fetchers` pipeline below as of the core-set review: this
-// hardcodes change: "n/a" (single-point read, no prior-year diff ever
-// fetched), so it carries no data-driven indication of movement and was
-// dropped from the core ticker on that basis. Left defined, not deleted,
-// in case a future pass adds the second-year fetch + diff this would need
-// to earn a spot back.
+// =====================================================================
+// Dormant fetchers — kept, not deleted, in case a future pass adds the
+// prior-period diff each would need to earn a spot in the active
+// pipelines above. Neither is called from main().
+// =====================================================================
+
+// Single-point Census ACS read; always "n/a" change with no diff fetched.
 async function fetchGini() {
   const key = process.env.CENSUS_API_KEY; // optional
   const now = new Date().getFullYear();
@@ -1435,7 +1007,7 @@ async function fetchGini() {
         id: "gini-us",
         name: "Gini Coefficient \u2014 US Disposable Income (Census Bureau)",
         value: gini.toFixed(3),
-        change: "n/a", // single-point annual read; no prior-year diff fetched here
+        change: "n/a",
         series: "sage",
         asOf: String(year),
         note: "Annual ACS 1-year release \u2014 value is static between updates.",
@@ -1447,10 +1019,7 @@ async function fetchGini() {
   throw new Error(`Census Gini: no year worked (${lastErr?.message})`);
 }
 
-// ---- US Census: White-Black median household income gap (ACS 1-year) ----
-// NOT in the `fetchers` pipeline below \u2014 same reasoning as fetchGini()
-// above: change is hardcoded "n/a", no diff is computed, dropped from the
-// core ticker on that basis, function kept for a possible future upgrade.
+// Single-point Census ACS read; same "n/a" limitation as fetchGini().
 async function fetchIncomeGap() {
   const key = process.env.CENSUS_API_KEY; // optional
   const now = new Date().getFullYear();
@@ -1482,131 +1051,63 @@ async function fetchIncomeGap() {
   throw new Error(`Census income gap: no year worked (${lastErr?.message})`);
 }
 
+// =====================================================================
+// main()
+// =====================================================================
+
+// Fetches one module's chart data, writing `outPath` with the same
+// fall-back-to-last-published behavior every module uses: on success,
+// merge the fetch result under the JSON's top level (or under `key`, for
+// modules like Energy whose file holds more than one dataset); on
+// failure, keep whatever was already published.
+async function writeModuleOutput(outPath, fetchFn, { key = null } = {}) {
+  const existing = await readJsonOr(outPath, {});
+  const output = { generatedAt: new Date().toISOString() };
+  try {
+    const result = await fetchFn();
+    if (key) output[key] = result;
+    else Object.assign(output, result);
+  } catch (err) {
+    console.error(`[warn] ${fetchFn.name} failed: ${err.message}`);
+    if (key) {
+      if (existing[key]) output[key] = existing[key];
+    } else if (existing.series) {
+      Object.assign(output, existing, { generatedAt: output.generatedAt });
+    }
+  }
+  await writeFile(outPath, JSON.stringify(output, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${outPath}.`);
+  return output;
+}
+
 async function main() {
-  const existing = await loadExisting();
-  const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchHousingPriceIndex, fetchSPR, fetchEnergyVolatility, fetchDisplacement];
-  const results = [];
-  for (const fn of fetchers) {
+  // ---- Core ticker ----
+  const existingTicker = await loadExistingTicker();
+  const indicators = [];
+  for (const fn of TICKER_FETCHERS) {
     try {
-      results.push(await fn());
+      indicators.push(await fn());
     } catch (err) {
       console.error(`[warn] ${fn.name} failed: ${err.message}`);
-      // Fall back to whatever was already published for this indicator, if any.
-      const idGuess = {
-        fetchFred: "treasury-spread",
-        fetchLaborShare: "labor-share",
-        fetchDollarIndex: "dollar-index",
-        fetchBls: "unemployment-gap",
-        fetchWealthShare: "wealth-share-top1",
-        fetchIncomeShareUS: "income-share-top1-us",
-        fetchHousingPriceIndex: "housing-price-index",
-        fetchSPR: "spr-level",
-        fetchEnergyVolatility: "energy-price-volatility",
-        fetchDisplacement: "forcibly-displaced",
-      }[fn.name];
-      if (existing[idGuess]) results.push(existing[idGuess]);
+      if (existingTicker[fn.indicatorId]) indicators.push(existingTicker[fn.indicatorId]);
     }
   }
+  await writeFile(OUT_PATH, JSON.stringify({ generatedAt: new Date().toISOString(), indicators }, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${OUT_PATH} with ${indicators.length} indicator(s).`);
 
-  const output = {
-    generatedAt: new Date().toISOString(),
-    indicators: results,
-  };
-  await writeFile(OUT_PATH, JSON.stringify(output, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${OUT_PATH} with ${results.length} indicator(s).`);
+  // ---- Module chart data (each its own sibling file) ----
+  await writeModuleOutput(ENERGY_OUT_PATH, fetchGenerationMix, { key: "generationMix" });
+  await writeModuleOutput(GINI_OUT_PATH, fetchGiniSeries);
+  await writeModuleOutput(STUDENT_LOAN_OUT_PATH, fetchStudentLoanSeries);
+  await writeModuleOutput(PEACE_OUT_PATH, fetchDisplacementByRegion);
 
-  // Energy module (generation mix): separate output file from the ticker,
-  // since it's a chart series rather than a single indicator value — see
-  // DECISIONS.md, "Energy module visualizations". Same
-  // fall-back-to-last-published behavior as above, so one bad EIA response
-  // doesn't blank out the chart. (crudeImports was removed 2026-09-11 by
-  // request \u2014 see DECISIONS.md changelog.)
-  const existingEnergy = await loadExistingEnergy();
-  const energyOutput = { generatedAt: new Date().toISOString() };
-
-  try {
-    energyOutput.generationMix = await fetchGenerationMix();
-  } catch (err) {
-    console.error(`[warn] fetchGenerationMix failed: ${err.message}`);
-    if (existingEnergy.generationMix) energyOutput.generationMix = existingEnergy.generationMix;
-  }
-
-  await writeFile(ENERGY_OUT_PATH, JSON.stringify(energyOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${ENERGY_OUT_PATH}.`);
-
-  // Distributional Justice (Pillar 2) panel: US Gini time series, own
-  // sibling output file for the same reason energy-data.json is separate
-  // from ticker-data.json — this is a chart series, not a single ticker
-  // value. Same fall-back-to-last-published behavior on fetch failure.
-  const existingGini = await loadExistingGini();
-  let giniOutput = { generatedAt: new Date().toISOString() };
-  try {
-    const gini = await fetchGiniSeries();
-    giniOutput = { generatedAt: giniOutput.generatedAt, ...gini };
-  } catch (err) {
-    console.error(`[warn] fetchGiniSeries failed: ${err.message}`);
-    if (existingGini.series) {
-      giniOutput = { ...existingGini, generatedAt: giniOutput.generatedAt };
-    }
-  }
-  await writeFile(GINI_OUT_PATH, JSON.stringify(giniOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${GINI_OUT_PATH}.`);
-
-  // Structural Power & Political Economy (Pillar 1) panel: Student Loans
-  // Owned and Securitized time series — own sibling output file, same
-  // reason gini-data.json/energy-data.json are separate from
-  // ticker-data.json (a chart series, not a single ticker value). Same
-  // fall-back-to-last-published behavior on fetch failure.
-  const existingStudentLoan = await loadExistingStudentLoan();
-  let studentLoanOutput = { generatedAt: new Date().toISOString() };
-  try {
-    const studentLoan = await fetchStudentLoanSeries();
-    studentLoanOutput = { generatedAt: studentLoanOutput.generatedAt, ...studentLoan };
-  } catch (err) {
-    console.error(`[warn] fetchStudentLoanSeries failed: ${err.message}`);
-    if (existingStudentLoan.series) {
-      studentLoanOutput = { ...existingStudentLoan, generatedAt: studentLoanOutput.generatedAt };
-    }
-  }
-  await writeFile(STUDENT_LOAN_OUT_PATH, JSON.stringify(studentLoanOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${STUDENT_LOAN_OUT_PATH}.`);
-
-  // Peace and Conflict (Pillar 3) panel: forcibly displaced persons by
-  // region of origin, latest year \u2014 own sibling output file, same
-  // reason gini-data.json/energy-data.json/student-loan-data.json are
-  // separate from ticker-data.json (a chart series/breakdown, not a
-  // single ticker value). Same fall-back-to-last-published behavior on
-  // fetch failure.
-  const existingPeace = await loadExistingPeace();
-  let peaceOutput = { generatedAt: new Date().toISOString() };
-  try {
-    const peace = await fetchDisplacementByRegion();
-    peaceOutput = { generatedAt: peaceOutput.generatedAt, ...peace };
-  } catch (err) {
-    console.error(`[warn] fetchDisplacementByRegion failed: ${err.message}`);
-    if (existingPeace.series) {
-      peaceOutput = { ...existingPeace, generatedAt: peaceOutput.generatedAt };
-    }
-  }
-  await writeFile(PEACE_OUT_PATH, JSON.stringify(peaceOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${PEACE_OUT_PATH}.`);
-
-  // Discourse-tagging module (Pillar 1): lexicon-scored Congressional
-  // Record excerpts \u2014 own sibling output file, same reason the other
-  // module JSONs are separate from ticker-data.json (a set of tagged
-  // entries, not a single ticker value). Same fall-back-to-last-published
-  // behavior on fetch failure.
-  const existingDiscourse = await loadExistingDiscourse();
+  // ---- Discourse-tagging module (its own flow: backfills short results
+  // from previously-published entries instead of the generic fallback) ----
+  const existingDiscourse = await readJsonOr(DISCOURSE_OUT_PATH, {});
   let discourseOutput = { generatedAt: new Date().toISOString() };
   try {
     const discourse = await fetchDiscourseTags();
     let entries = discourse.entries ?? [];
-    // Backfill (added 2026-09-14, by request): if the walk-back still
-    // comes back short of DISCOURSE_TARGET_COUNT \u2014 e.g. GovInfo's lookback
-    // window ran out of qualifying hearings \u2014 top up with
-    // the most recent previously-published entries not already included,
-    // deduped by granuleId, instead of shipping fewer populated cards (the
-    // "non-loading panels" the live screenshot showed).
     if (entries.length < DISCOURSE_TARGET_COUNT && existingDiscourse.entries?.length) {
       const seen = new Set(entries.map((e) => e.granuleId));
       for (const old of existingDiscourse.entries) {
@@ -1626,23 +1127,7 @@ async function main() {
   await writeFile(DISCOURSE_OUT_PATH, JSON.stringify(discourseOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${DISCOURSE_OUT_PATH}.`);
 
-  // Democracy (Pillar 1) panel: US Liberal Democracy Index time series —
-  // own sibling output file, same reason gini-data.json/student-loan-data.json
-  // are separate from ticker-data.json (a chart series, not a single ticker
-  // value). Same fall-back-to-last-published behavior on fetch failure.
-  const existingDemocracy = await loadExistingDemocracy();
-  let democracyOutput = { generatedAt: new Date().toISOString() };
-  try {
-    const democracy = await fetchDemocracySeries();
-    democracyOutput = { generatedAt: democracyOutput.generatedAt, ...democracy };
-  } catch (err) {
-    console.error(`[warn] fetchDemocracySeries failed: ${err.message}`);
-    if (existingDemocracy.series) {
-      democracyOutput = { ...existingDemocracy, generatedAt: democracyOutput.generatedAt };
-    }
-  }
-  await writeFile(DEMOCRACY_OUT_PATH, JSON.stringify(democracyOutput, null, 2) + "\n", "utf8");
-  console.log(`Wrote ${DEMOCRACY_OUT_PATH}.`);
+  await writeModuleOutput(DEMOCRACY_OUT_PATH, fetchDemocracySeries);
 }
 
 main().catch((err) => {
