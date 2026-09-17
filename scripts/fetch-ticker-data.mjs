@@ -33,12 +33,12 @@
  *   EIA_API_KEY    - https://www.eia.gov/opendata/register.php (free, REQUIRED
  *                    for fetchSPR \u2014 EIA does not offer an unauthenticated
  *                    fallback the way BLS/Census do)
- *   GOVINFO_API_KEY - https://api.govinfo.gov/docs/ (free, OPTIONAL \u2014 GovInfo
- *                    accepts the shared, unregistered "DEMO_KEY" at a low rate
- *                    limit (30/hr, 50/day per api.data.gov's shared quota) for
- *                    fetchDiscourseTags(). Register for a personal key only if
- *                    the demo quota turns out to be too tight for the daily
- *                    schedule \u2014 see DECISIONS.md, "Discourse-tagging module".)
+ *   GOVINFO_API_KEY - https://api.govinfo.gov/docs/ (free \u2014 a personal key has
+ *                    been registered and is now wired through in
+ *                    update-ticker-data.yml as of 2026-09-17; the code still
+ *                    falls back to the shared, unregistered "DEMO_KEY" at a
+ *                    lower rate limit (30/hr, 50/day) if this secret is ever
+ *                    absent \u2014 see DECISIONS.md, "Discourse-tagging module".)
  *
  * Design notes (see DECISIONS.md, Technical Requirements):
  *   - Wired up and in the core ticker: FRED (T10Y2Y, labor share, Nominal
@@ -1375,8 +1375,19 @@ async function fetchDiscourseTags() {
   // collections response's own ordering, which the original write-up
   // assumed without confirming \u2014 flagged as an unverified assumption in
   // the 2026-09-13 entry; sorting here removes the need to trust it.
+  //
+  // ADDITIONAL FILTER (added 2026-09-17, after a real run's package list
+  // included "CREC-1996-07-10" alongside 2026 dates despite a
+  // DISCOURSE_LOOKBACK_DAYS=21 window): GovInfo's /collections/{col}/{date}
+  // endpoint returns packages MODIFIED on/after that date, not published
+  // on/after it \u2014 an old package can be reprocessed/republished with a
+  // recent modification timestamp while keeping its original packageId.
+  // Rather than trust the endpoint to only return in-window items, filter
+  // by the date parsed out of packageId itself against `since` directly.
+  const sinceDateOnly = since.slice(0, 10);
   const sorted = [...packages]
     .filter((p) => /CREC-\d{4}-\d{2}-\d{2}/.test(p.packageId ?? ""))
+    .filter((p) => p.packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)[1] >= sinceDateOnly)
     .sort((a, b) => b.packageId.localeCompare(a.packageId));
 
   const isFloorSpeech = (g) => {
@@ -1387,9 +1398,20 @@ async function fetchDiscourseTags() {
 
   const entries = [];
   const seenDates = new Set();
+  // CIRCUIT BREAKER (added 2026-09-17, after a real run showed ~20
+  // consecutive HTTP 429s from GovInfo's shared DEMO_KEY \u2014 see
+  // DECISIONS.md, "Discourse-tagging module"): once the shared key's
+  // quota is exhausted, every subsequent request in the same run will
+  // also 429 \u2014 continuing to walk the full DISCOURSE_LOOKBACK_DAYS
+  // window just burns more of that shared quota for zero benefit and
+  // delays recovery for whoever else's traffic shares DEMO_KEY. Once
+  // set, stop making GovInfo requests for the rest of this run and fall
+  // through to main()'s existing backfill-from-last-published logic.
+  let rateLimited = false;
 
   for (const pkg of sorted) {
     if (entries.length >= DISCOURSE_TARGET_COUNT) break;
+    if (rateLimited) break;
     const packageId = pkg.packageId;
     const date = packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1];
     if (!date || seenDates.has(date)) continue;
@@ -1425,9 +1447,15 @@ async function fetchDiscourseTags() {
           }
         } catch (err) {
           console.error(`[warn] discourse-tagging: skipped granule ${g.granuleId}: ${err.message}`);
+          if (/HTTP 429/.test(err.message)) {
+            rateLimited = true;
+            console.error("[warn] discourse-tagging: GovInfo rate limit hit (429) \u2014 stopping further requests this run.");
+            break;
+          }
         }
       }
 
+      if (rateLimited) break;
       if (!best) continue; // nothing this day cleared threshold; try the next-oldest package
 
       const matchedWords = [
@@ -1443,6 +1471,10 @@ async function fetchDiscourseTags() {
       });
     } catch (err) {
       console.error(`[warn] discourse-tagging: skipped package ${packageId}: ${err.message}`);
+      if (/HTTP 429/.test(err.message)) {
+        rateLimited = true;
+        console.error("[warn] discourse-tagging: GovInfo rate limit hit (429) \u2014 stopping further requests this run.");
+      }
     }
   }
 
@@ -1471,7 +1503,9 @@ async function fetchDiscourseTags() {
 // official, real-time per SEC's documentation \u2014 chosen over SEC
 // Litigation Releases (too sparse: a handful per week, not daily volume)
 // and over paid third-party SEC wrappers (unnecessary; SEC's own search
-// is free). Queries recent 10-K/10-Q/8-K filings, fetches each hit's
+// is free). Queries recent 10-K/10-Q filings (8-K dropped 2026-09-17,
+// see the FIX comment below \u2014 it structurally has no Item 3 Legal
+// Proceedings section), fetches each hit's
 // actual filing document, and locates the Legal Proceedings section
 // (Item 3, or Item 1 in some 10-Qs) by heading, extracting text up to the
 // next "Item" heading.
@@ -1531,90 +1565,110 @@ async function fetchLegalCaseTags() {
 
   const since = new Date(Date.now() - LEGAL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const until = new Date().toISOString().slice(0, 10);
-  const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22legal+proceedings%22&forms=10-K,10-Q,8-K&startdt=${since}&enddt=${until}`;
+  // FIX (2026-09-17, after the first run with a working URL builder still
+  // returned zero entries out of 100 hits \u2014 see DECISIONS.md): dropped
+  // 8-K from `forms`. 8-Ks structurally do not have an "Item 3 (or Part
+  // II Item 1) Legal Proceedings" section at all \u2014 that heading is
+  // specific to 10-K/10-Q. An 8-K can match the q="legal proceedings"
+  // phrase search (e.g. inside a press-release exhibit) without ever
+  // containing that heading, so every 8-K hit was a guaranteed miss on
+  // extractLegalProceedings() \u2014 wasted fetches, not a source of real
+  // entries.
+  const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22legal+proceedings%22&forms=10-K,10-Q&startdt=${since}&enddt=${until}`;
   const searchData = await safeFetchJson(searchUrl, { headers: { "User-Agent": SEC_UA } });
   const hits = searchData?.hits?.hits ?? [];
   console.log("[diag] efts.sec.gov sample hit:", JSON.stringify(hits[0] ?? null));
   console.log("[diag] efts.sec.gov hit count:", hits.length);
   if (!hits.length) throw new Error("SEC EDGAR: no full-text-search hits returned");
 
-  // Sort most-recent-first by filing date and walk them, keeping at most
-  // one qualifying entry per calendar day \u2014 same convention as
-  // fetchDiscourseTags().
-  const withDate = hits
-    .map((h) => ({ hit: h, date: h?._source?.file_date ?? h?._source?.filedAt ?? null }))
-    .filter((x) => x.date)
-    .sort((a, b) => b.date.localeCompare(a.date));
+  // FIX (2026-09-17): the previous version kept only the FIRST hit for
+  // each calendar day and moved on to the next day if that one hit's
+  // extraction failed \u2014 with ~100 hits spread across a 30-day window,
+  // that's often only one shot per day, and one company's filing failing
+  // to yield a Legal Proceedings section says nothing about whether
+  // another company's same-day filing would. Now groups hits by date and
+  // tries up to MAX_CANDIDATES_PER_DAY filings within a day before
+  // giving up on that day, same "at most one entry per day" output
+  // shape as before, just more attempts to earn it.
+  const MAX_CANDIDATES_PER_DAY = 6;
+  const byDate = {};
+  for (const h of hits) {
+    const date = h?._source?.file_date ?? null;
+    if (!date) continue;
+    (byDate[date] ??= []).push(h);
+  }
+  const orderedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+  if (!orderedDates.length) throw new Error("SEC EDGAR: no hits carried a usable file_date");
 
   const entries = [];
-  const seenDates = new Set();
 
-  for (const { hit, date } of withDate) {
+  outer:
+  for (const date of orderedDates) {
     if (entries.length >= LEGAL_TARGET_COUNT) break;
-    if (seenDates.has(date)) continue;
+    const candidates = byDate[date].slice(0, MAX_CANDIDATES_PER_DAY);
 
-    const src = hit._source ?? {};
-    const accessionNo = src.adsh ?? null;
-    // ROOT CAUSE FIX (2026-09-17, after the first real run's error \u2014 see
-    // DECISIONS.md): the filing document's filename is NOT a separate
-    // _source field (src.adsh_document / src.primary_doc, both guessed
-    // and both wrong) \u2014 it's packed into hit._id as
-    // "{accession-with-dashes}:{filename}". Confirmed against multiple
-    // independently-published real efts.sec.gov responses. CIK also
-    // needs its leading zeros stripped for the Archives URL path (the
-    // API returns it zero-padded, e.g. "0001360565", but the URL wants
-    // "1360565").
-    const [, filename] = String(hit._id ?? "").split(":");
-    const rawCik = Array.isArray(src.ciks) ? src.ciks[0] : src.cik;
-    const cik = rawCik ? String(Number(rawCik)) : null;
-    const company = cleanCompanyName(Array.isArray(src.display_names) ? src.display_names[0] : src.display_names);
-    const form = src.form ?? (Array.isArray(src.root_forms) ? src.root_forms[0] : "(unknown form)");
-    const adshNoDashes = accessionNo ? accessionNo.replace(/-/g, "") : null;
+    for (const hit of candidates) {
+      const src = hit._source ?? {};
+      const accessionNo = src.adsh ?? null;
+      const [, filename] = String(hit._id ?? "").split(":");
+      const rawCik = Array.isArray(src.ciks) ? src.ciks[0] : src.cik;
+      const cik = rawCik ? String(Number(rawCik)) : null;
+      const company = cleanCompanyName(Array.isArray(src.display_names) ? src.display_names[0] : src.display_names);
+      const form = src.form ?? (Array.isArray(src.root_forms) ? src.root_forms[0] : "(unknown form)");
+      const adshNoDashes = accessionNo ? accessionNo.replace(/-/g, "") : null;
 
-    if (!cik || !adshNoDashes || !filename) {
-      // DIAGNOSTIC (added 2026-09-17, same convention as the UNHCR
-      // fetchers' [diag] lines): this is exactly the kind of skip that
-      // went silent before \u2014 log it so a future field-name mismatch is
-      // visible in the Action's logs instead of just producing the
-      // generic "no qualifying sections found" error with no trail.
-      console.log("[diag] legal-tagging: skipped hit, missing URL-building field(s):", JSON.stringify({ cik: rawCik, accessionNo, filename, hitId: hit._id }));
-      continue;
-    }
+      if (!cik || !adshNoDashes || !filename) {
+        console.log("[diag] legal-tagging: skipped hit, missing URL-building field(s):", JSON.stringify({ cik: rawCik, accessionNo, filename, hitId: hit._id }));
+        continue;
+      }
 
-    seenDates.add(date);
-    try {
-      const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adshNoDashes}/${filename}`;
-      const html = await safeFetchText(docUrl, { headers: { "User-Agent": SEC_UA } });
-      const text = stripHtml(html);
-      const section = extractLegalProceedings(text);
-      if (!section || section.length < 200) continue; // no locatable/substantial Legal Proceedings text this filing \u2014 try the next
+      try {
+        const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adshNoDashes}/${filename}`;
+        const html = await safeFetchText(docUrl, { headers: { "User-Agent": SEC_UA } });
+        const text = stripHtml(html);
+        const section = extractLegalProceedings(text);
+        if (!section || section.length < 200) {
+          // DIAGNOSTIC (added 2026-09-17, previously silent \u2014 this is
+          // exactly the branch that was almost certainly firing on every
+          // one of the 100 hits in the run that surfaced this bug):
+          // shows whether the heading regex found nothing at all, or
+          // found a heading but the section it bounded was too short.
+          console.log("[diag] legal-tagging: no usable Legal Proceedings section", JSON.stringify({ accessionNo, form, foundHeading: section !== null, sectionLen: section?.length ?? 0 }));
+          await sleep(150);
+          continue;
+        }
 
-      const scored = scoreLegalText(section);
-      if (!scored.dominantLegalCategory && !scored.dominantFoundation && !scored.dominantEmotion) continue; // doesn't clear MIN_MATCHES on any axis
+        const scored = scoreLegalText(section);
+        if (!scored.dominantLegalCategory && !scored.dominantFoundation && !scored.dominantEmotion) {
+          // DIAGNOSTIC (added 2026-09-17, previously silent): the section
+          // extracted fine but didn't clear MIN_MATCHES on any of the
+          // three lexicons \u2014 different failure mode than "no section
+          // found," worth telling apart in the logs.
+          console.log("[diag] legal-tagging: section found but below MIN_MATCHES on every lexicon", JSON.stringify({ accessionNo, form, sectionLen: section.length }));
+          await sleep(150);
+          continue;
+        }
 
-      const matchedWords = [
-        ...(scored.dominantLegalCategory ? scored.matchedKeywords[scored.dominantLegalCategory] ?? [] : []),
-        ...(scored.dominantFoundation ? scored.matchedKeywords[scored.dominantFoundation] ?? [] : []),
-        ...(scored.dominantEmotion ? scored.matchedKeywords[scored.dominantEmotion] ?? [] : []),
-      ];
+        const matchedWords = [
+          ...(scored.dominantLegalCategory ? scored.matchedKeywords[scored.dominantLegalCategory] ?? [] : []),
+          ...(scored.dominantFoundation ? scored.matchedKeywords[scored.dominantFoundation] ?? [] : []),
+          ...(scored.dominantEmotion ? scored.matchedKeywords[scored.dominantEmotion] ?? [] : []),
+        ];
 
-      entries.push({
-        accessionNo,
-        company,
-        form,
-        date,
-        excerpt: buildExcerpt(section, matchedWords),
-        ...scored,
-      });
-    } catch (err) {
-      console.error(`[warn] legal-tagging: skipped filing ${accessionNo}: ${err.message}`);
-    } finally {
-      // Throttle: SEC's documented aggregate limit is ~10 req/s across
-      // all sec.gov subdomains (efts.sec.gov's search call above plus
-      // every www.sec.gov document fetch here count against the same
-      // budget). 150ms keeps us comfortably under that even accounting
-      // for the earlier search call.
-      await sleep(150);
+        entries.push({
+          accessionNo,
+          company,
+          form,
+          date,
+          excerpt: buildExcerpt(section, matchedWords),
+          ...scored,
+        });
+        await sleep(150);
+        continue outer; // this day earned its one entry \u2014 move to the next day
+      } catch (err) {
+        console.error(`[warn] legal-tagging: skipped filing ${accessionNo}: ${err.message}`);
+        await sleep(150);
+      }
     }
   }
 
@@ -1622,7 +1676,7 @@ async function fetchLegalCaseTags() {
 
   return {
     asOf: entries[0]?.date ?? null,
-    source: "SEC EDGAR (Legal Proceedings sections, 10-K/10-Q/8-K)",
+    source: "SEC EDGAR (Legal Proceedings sections, 10-K/10-Q)",
     method: "Lexicon-based scoring \u2014 Legal Outcome Lexicon + Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
     entries,
   };
