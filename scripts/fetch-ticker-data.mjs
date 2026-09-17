@@ -211,7 +211,7 @@ const BROWSER_UA =
 // case-narrative tagging module," for why this is deliberately NOT
 // BROWSER_UA. PLACEHOLDER: replace the contact email below with a real
 // one before running this against SEC's servers unattended.
-const SEC_UA = "Zauberberg-Dashboard/1.0 (contact: KEK421@pitt.edu)";
+const SEC_UA = "Zauberberg-Dashboard/1.0 (contact: REPLACE_WITH_REAL_CONTACT_EMAIL@example.com)";
 
 async function safeFetchText(url, opts) {
   const res = await fetch(url, opts);
@@ -1481,21 +1481,37 @@ async function fetchDiscourseTags() {
 // DECISIONS.md for why this differs from the GDELT/UNHCR convention.
 // PLACEHOLDER CONTACT EMAIL must be replaced before unattended use.
 //
-// CAVEAT (same pattern as fetchSPR/fetchGenerationMix/fetchGiniSeries/
-// fetchDemocracySeries): written without a live test call (no network
-// egress in this build environment) \u2014 the efts.sec.gov query params and
-// the Item-3 heading regex are per SEC's public documentation and typical
-// filing structure, but unconfirmed against a real response. Verify the
-// first real Action run: does a hit's filing actually contain a
-// locatable Legal Proceedings section, and does the heading regex miss
-// any real-world heading variants (e.g. "Item 1. Legal Proceedings" in a
-// 10-Q vs. "Item 3. Legal Proceedings" in a 10-K)?
+// CAVEAT: the efts.sec.gov query params (q/forms/startdt/enddt) and
+// response envelope (hits.hits[]._source.{adsh,ciks,file_date,form,
+// display_names}) are now CONFIRMED against multiple independently-
+// published real responses (checked 2026-09-17, after the first real run
+// failed \u2014 see the ROOT CAUSE FIX comment below and DECISIONS.md). What
+// remains genuinely unverified is the Legal Proceedings heading
+// extraction itself (ITEM_HEADING_RE/NEXT_ITEM_RE below) \u2014 real filings'
+// heading formatting varies enough that this may still need adjustment
+// on the first live run producing entries.
 //
 // Same "one qualifying entry per calendar day, walk back to fill a
 // trailing target" shape as fetchDiscourseTags() \u2014 see
 // LEGAL_LOOKBACK_DAYS/LEGAL_TARGET_COUNT above. A filing whose Legal
 // Proceedings section is boilerplate ("None," or a one-line disclaimer)
 // won't clear MIN_MATCHES and is skipped, not padded.
+// Small delay helper for SEC's ~10 req/s aggregate rate limit across all
+// sec.gov subdomains (efts.sec.gov + www.sec.gov both count) \u2014 added
+// 2026-09-17 after the first real run's diagnosis; see DECISIONS.md,
+// "Legal case-narrative tagging module."
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Extracts a clean company name from EDGAR's packed display_names string,
+// e.g. "Where Food Comes From, Inc. (WFCF) (CIK 0001360565)" -> "Where
+// Food Comes From, Inc.". Falls back to the raw string if it doesn't
+// match the expected pattern.
+function cleanCompanyName(displayName) {
+  if (!displayName) return "(unknown filer)";
+  const m = /^(.*?)\s*\([^)]+\)\s*\(CIK\s*\d+\)\s*$/i.exec(displayName);
+  return m ? m[1].trim() : displayName;
+}
+
 async function fetchLegalCaseTags() {
   const ITEM_HEADING_RE = /item\s*[13][a-z]?\.?\s*legal\s+proceedings/i;
   const NEXT_ITEM_RE = /item\s*\d[a-z]?\.?\s+[a-z]/i;
@@ -1538,20 +1554,36 @@ async function fetchLegalCaseTags() {
     if (seenDates.has(date)) continue;
 
     const src = hit._source ?? {};
-    const accessionNo = src.adsh ?? hit._id;
-    const cik = Array.isArray(src.ciks) ? src.ciks[0] : src.cik;
-    const company = Array.isArray(src.display_names) ? src.display_names[0] : (src.display_names ?? "(unknown filer)");
-    const form = src.root_form ?? src.form ?? "(unknown form)";
-    // The filing's primary document URL; efts.sec.gov results carry the
-    // pieces needed to reconstruct it (cik + accession + primary doc),
-    // per SEC's documented Archives path convention.
-    const adshNoDashes = String(accessionNo ?? "").replace(/-/g, "");
-    const primaryDoc = src.adsh_document ?? src.primary_doc ?? null;
-    if (!cik || !adshNoDashes || !primaryDoc) continue; // can't build a fetchable URL from this hit \u2014 skip to the next
+    const accessionNo = src.adsh ?? null;
+    // ROOT CAUSE FIX (2026-09-17, after the first real run's error \u2014 see
+    // DECISIONS.md): the filing document's filename is NOT a separate
+    // _source field (src.adsh_document / src.primary_doc, both guessed
+    // and both wrong) \u2014 it's packed into hit._id as
+    // "{accession-with-dashes}:{filename}". Confirmed against multiple
+    // independently-published real efts.sec.gov responses. CIK also
+    // needs its leading zeros stripped for the Archives URL path (the
+    // API returns it zero-padded, e.g. "0001360565", but the URL wants
+    // "1360565").
+    const [, filename] = String(hit._id ?? "").split(":");
+    const rawCik = Array.isArray(src.ciks) ? src.ciks[0] : src.cik;
+    const cik = rawCik ? String(Number(rawCik)) : null;
+    const company = cleanCompanyName(Array.isArray(src.display_names) ? src.display_names[0] : src.display_names);
+    const form = src.form ?? (Array.isArray(src.root_forms) ? src.root_forms[0] : "(unknown form)");
+    const adshNoDashes = accessionNo ? accessionNo.replace(/-/g, "") : null;
+
+    if (!cik || !adshNoDashes || !filename) {
+      // DIAGNOSTIC (added 2026-09-17, same convention as the UNHCR
+      // fetchers' [diag] lines): this is exactly the kind of skip that
+      // went silent before \u2014 log it so a future field-name mismatch is
+      // visible in the Action's logs instead of just producing the
+      // generic "no qualifying sections found" error with no trail.
+      console.log("[diag] legal-tagging: skipped hit, missing URL-building field(s):", JSON.stringify({ cik: rawCik, accessionNo, filename, hitId: hit._id }));
+      continue;
+    }
 
     seenDates.add(date);
     try {
-      const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adshNoDashes}/${primaryDoc}`;
+      const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adshNoDashes}/${filename}`;
       const html = await safeFetchText(docUrl, { headers: { "User-Agent": SEC_UA } });
       const text = stripHtml(html);
       const section = extractLegalProceedings(text);
@@ -1576,6 +1608,13 @@ async function fetchLegalCaseTags() {
       });
     } catch (err) {
       console.error(`[warn] legal-tagging: skipped filing ${accessionNo}: ${err.message}`);
+    } finally {
+      // Throttle: SEC's documented aggregate limit is ~10 req/s across
+      // all sec.gov subdomains (efts.sec.gov's search call above plus
+      // every www.sec.gov document fetch here count against the same
+      // budget). 150ms keeps us comfortably under that even accounting
+      // for the earlier search call.
+      await sleep(150);
     }
   }
 
