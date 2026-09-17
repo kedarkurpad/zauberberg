@@ -211,7 +211,7 @@ const BROWSER_UA =
 // case-narrative tagging module," for why this is deliberately NOT
 // BROWSER_UA. PLACEHOLDER: replace the contact email below with a real
 // one before running this against SEC's servers unattended.
-const SEC_UA = "Zauberberg-Dashboard/1.0 (contact: REPLACE_WITH_REAL_CONTACT_EMAIL@example.com)";
+const SEC_UA = "Zauberberg-Dashboard/1.0 (contact: KEK421@pitt.edu)";
 
 async function safeFetchText(url, opts) {
   const res = await fetch(url, opts);
