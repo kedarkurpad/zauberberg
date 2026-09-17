@@ -1,9 +1,54 @@
 {
-  "generatedAt": "2026-09-17T17:01:49.371Z",
-  "asOf": "2026-07-14",
-  "source": "GovInfo Congressional Hearings (CHRG)",
+  "generatedAt": "2026-09-17T20:42:58.276Z",
+  "asOf": "2026-09-15",
+  "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
+    {
+      "granuleId": "CREC-2026-09-15-pt1-PgH5625-3",
+      "title": "MORNING-HOUR DEBATE",
+      "date": "2026-09-15",
+      "excerpt": "…625] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] MORNING-HOUR DEBATE The SPEAKER pro tempore. Pursuant to the order of the House of January 6, 2026, the Chair will now recognize Members from lists submitted by the majority and minority leaders for morning-hour debate. T…",
+      "wordCount": 105,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 9.5,
+        "loyalty": 0,
+        "authority": 28.6,
+        "purity": 0
+      },
+      "dominantFoundation": "authority",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [
+          "equally"
+        ],
+        "loyalty": [],
+        "authority": [
+          "order",
+          "leaders"
+        ],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
     {
       "granuleId": "CHRG-119hhrg64242",
       "title": "AI on Main Street: How AI Is Shaping the Future of Small Business",
@@ -304,106 +349,6 @@
         "positive": 8.4,
         "negative": 7.5,
         "score": 0.9
-      }
-    },
-    {
-      "granuleId": "CHRG-119shrg61883",
-      "title": "Confirmation Hearing on Federal Appointments",
-      "date": "2025-04-30",
-      "excerpt": "…family and friends for coming today, and I'm sure all of the family and friends are proud of these two nominees. Mr. Cole, you have an impressive background in law enforcement. You started your career as a police officer for your alma mater, Rochester Institute of Technology, before serving several municipalities. You…",
-      "wordCount": 15031,
-      "moralFoundations": {
-        "care": 2.9,
-        "fairness": 1.9,
-        "loyalty": 3,
-        "authority": 7,
-        "purity": 0.9
-      },
-      "dominantFoundation": "authority",
-      "matchedKeywords": {
-        "care": [
-          "safety",
-          "safe",
-          "protecting",
-          "protections",
-          "protection"
-        ],
-        "fairness": [
-          "justice",
-          "rights",
-          "equally",
-          "corruption",
-          "fair"
-        ],
-        "loyalty": [
-          "homeland",
-          "national",
-          "community",
-          "nationally",
-          "nation"
-        ],
-        "authority": [
-          "law",
-          "leadership",
-          "chaos",
-          "tradition",
-          "leaders"
-        ],
-        "purity": [
-          "since",
-          "corruption",
-          "sinaloa",
-          "sincere",
-          "single"
-        ],
-        "anger": [
-          "threats",
-          "attacked",
-          "threat",
-          "threatened",
-          "threatening"
-        ],
-        "fear": [
-          "crisis",
-          "fear",
-          "danger",
-          "dangerous",
-          "risk"
-        ],
-        "joy": [
-          "proud",
-          "hope",
-          "happening",
-          "pride",
-          "joy"
-        ],
-        "sadness": [],
-        "positive": [
-          "good",
-          "security",
-          "success",
-          "support",
-          "strong"
-        ],
-        "negative": [
-          "crisis",
-          "threats",
-          "danger",
-          "harm",
-          "bad"
-        ]
-      },
-      "emotions": {
-        "anger": 1,
-        "fear": 1.5,
-        "joy": 2.3,
-        "sadness": 0
-      },
-      "dominantEmotion": "joy",
-      "tone": {
-        "positive": 5.3,
-        "negative": 3.1,
-        "score": 2.2
       }
     }
   ]
