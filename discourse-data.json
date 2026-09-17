@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T20:48:19.221Z",
+  "generatedAt": "2026-09-17T20:59:53.522Z",
   "asOf": "2026-09-15",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
@@ -50,305 +50,162 @@
       }
     },
     {
-      "granuleId": "CHRG-119hhrg64242",
-      "title": "AI on Main Street: How AI Is Shaping the Future of Small Business",
-      "date": "2026-07-14",
-      "excerpt": "…tee wisdom to discern the truth, courage to do what is right, and humility to listen with respect to one another. Help us to seek solutions that strengthen our nation, protect the freedoms we cherish, and honor the first--the trust placed in us by those we represent. We ask your blessings on our country, our servicemem…",
-      "wordCount": 21260,
-      "moralFoundations": {
-        "care": 3.1,
-        "fairness": 1.1,
-        "loyalty": 3.3,
-        "authority": 2.7,
-        "purity": 0.5
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [
-          "protect",
-          "safety",
-          "hurts",
-          "harm",
-          "hurting"
-        ],
-        "fairness": [
-          "justice",
-          "bias",
-          "discrimination",
-          "rights",
-          "biases"
-        ],
-        "loyalty": [
-          "nation",
-          "allegiance",
-          "together",
-          "communities",
-          "national"
-        ],
-        "authority": [
-          "respect",
-          "order",
-          "laws",
-          "leadership",
-          "law"
-        ],
-        "purity": [
-          "single",
-          "since"
-        ],
-        "anger": [
-          "threatened",
-          "threaten",
-          "threat"
-        ],
-        "fear": [
-          "worry",
-          "risks",
-          "risk",
-          "fear",
-          "fears"
-        ],
-        "joy": [
-          "encourage",
-          "hope",
-          "happen",
-          "happens",
-          "happened"
-        ],
-        "sadness": [
-          "struggling"
-        ],
-        "positive": [
-          "opportunity",
-          "good",
-          "growth",
-          "secure",
-          "benefit"
-        ],
-        "negative": [
-          "threatened",
-          "harm",
-          "threaten",
-          "threat",
-          "fail"
-        ]
-      },
-      "emotions": {
-        "anger": 0.1,
-        "fear": 2,
-        "joy": 1.7,
-        "sadness": 0
-      },
-      "dominantEmotion": "fear",
-      "tone": {
-        "positive": 5.7,
-        "negative": 0.6,
-        "score": 5.1
-      }
-    },
-    {
-      "granuleId": "CHRG-119hhrg64404",
-      "title": "The General Services Administration: Examining the Future of Federal Real Estate Management to Reduce Costs for the Taxpayer",
-      "date": "2026-03-04",
-      "excerpt": "…rease operational efficiency and reduce real estate costs.\\8\\ The USE IT Act also specifically directs that department and agency headquarters buildings in the National Capital Region be consolidated and excess space sold to meet the minimum 60 percent occupancy metric.\\9\\ ----------------------------------------------…",
-      "wordCount": 23161,
+      "granuleId": "CREC-2026-09-14-pt1-PgH5537",
+      "title": "RECOGNIZING THE SUDANESE-AMERICAN IOWA NATIONAL SOCCER TEAM CLUB",
+      "date": "2026-09-14",
+      "excerpt": "…] [Page H5537] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] {time} 1215 RECOGNIZING THE SUDANESE-AMERICAN IOWA NATIONAL SOCCER TEAM CLUB (Mrs. Miller-Meeks of Iowa was recognized to address the House for 5 minutes.) Mrs. MILLER-MEEKS. Mr. Speaker, I rise today to recogni…",
+      "wordCount": 741,
       "moralFoundations": {
         "care": 1.3,
-        "fairness": 0.4,
-        "loyalty": 3.2,
-        "authority": 2.5,
-        "purity": 1
+        "fairness": 1.3,
+        "loyalty": 28.3,
+        "authority": 4,
+        "purity": 1.3
       },
       "dominantFoundation": "loyalty",
       "matchedKeywords": {
         "care": [
-          "suffers",
-          "kind",
-          "care",
-          "safety",
-          "harm's"
+          "harmonizing"
         ],
         "fairness": [
-          "justice",
-          "honest",
-          "honestly",
           "fair"
         ],
         "loyalty": [
           "national",
-          "homeland",
-          "nation",
-          "community",
-          "communities"
+          "team",
+          "teamwork",
+          "team's",
+          "community"
         ],
         "authority": [
-          "authorities",
-          "authority",
-          "order",
           "respect",
-          "legitimate"
+          "leadership",
+          "law"
         ],
         "purity": [
-          "since",
-          "single",
-          "degrades",
-          "sin",
-          "cleaned"
+          "sacred"
         ],
-        "anger": [
-          "aggressively",
-          "threatens",
-          "angry"
-        ],
-        "fear": [
-          "risks",
-          "risk",
-          "crisis",
-          "danger",
-          "fears"
-        ],
+        "anger": [],
+        "fear": [],
         "joy": [
-          "hope",
-          "happening",
-          "happens",
-          "proud",
-          "happened"
+          "pride",
+          "celebrating",
+          "celebrate",
+          "happy",
+          "hope"
         ],
-        "sadness": [
-          "decline"
-        ],
+        "sadness": [],
         "positive": [
-          "strong",
-          "improve",
-          "opportunity",
-          "security",
-          "opportunities"
+          "support",
+          "good",
+          "supports",
+          "supporting"
         ],
         "negative": [
-          "fails",
-          "damage",
-          "crisis",
-          "fail",
-          "threatens"
+          "harmonizing"
         ]
       },
       "emotions": {
-        "anger": 0.1,
-        "fear": 0.6,
-        "joy": 1.5,
+        "anger": 0,
+        "fear": 0,
+        "joy": 12.1,
         "sadness": 0
       },
       "dominantEmotion": "joy",
       "tone": {
-        "positive": 4.1,
-        "negative": 0.7,
-        "score": 3.4
+        "positive": 5.4,
+        "negative": 1.3,
+        "score": 4.1
       }
     },
     {
-      "granuleId": "CHRG-119hhrg63127",
-      "title": "Worldwide Threats to the Homeland",
-      "date": "2025-12-11",
-      "excerpt": "- WORLDWIDE THREATS TO THE HOMELAND [House Hearing, 119 Congress] [From the U.S. Government Publishing Office] WORLDWIDE THREATS TO THE HOMELAND ==========================================…",
-      "wordCount": 53178,
+      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "date": "2026-09-10",
+      "excerpt": "…43 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
+      "wordCount": 88,
       "moralFoundations": {
-        "care": 4.3,
-        "fairness": 1.1,
-        "loyalty": 9.3,
-        "authority": 6.6,
-        "purity": 1.7
+        "care": 0,
+        "fairness": 11.4,
+        "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
       },
       "dominantFoundation": "loyalty",
       "matchedKeywords": {
-        "care": [
-          "safe",
-          "safeguard",
-          "protect",
-          "protects",
-          "suffering"
-        ],
+        "care": [],
         "fairness": [
-          "unfair",
-          "corrupt",
-          "rights",
-          "justice",
-          "corruption"
+          "justice"
         ],
         "loyalty": [
-          "homeland",
-          "national",
-          "together",
-          "nationwide",
+          "allegiance",
           "nation"
         ],
-        "authority": [
-          "order",
-          "respectful",
-          "traditions",
-          "law",
-          "leaders"
-        ],
-        "purity": [
-          "since",
-          "corrupt",
-          "corruption",
-          "single",
-          "sinoloa"
-        ],
-        "anger": [
-          "threats",
-          "attacks",
-          "attack",
-          "threat",
-          "attacked"
-        ],
-        "fear": [
-          "afraid",
-          "risk",
-          "crisis",
-          "fear",
-          "dangers"
-        ],
-        "joy": [
-          "joyce",
-          "hope",
-          "happy",
-          "celebrations",
-          "celebration"
-        ],
-        "sadness": [
-          "tragic",
-          "grief",
-          "decline",
-          "sadly",
-          "struggled"
-        ],
-        "positive": [
-          "security",
-          "strong",
-          "good",
-          "security's",
-          "secure"
-        ],
-        "negative": [
-          "threats",
-          "threat",
-          "crisis",
-          "corrupt",
-          "corruption"
-        ]
+        "authority": [],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
       },
       "emotions": {
-        "anger": 8.2,
-        "fear": 1.5,
-        "joy": 1.3,
-        "sadness": 0.3
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
       },
-      "dominantEmotion": "anger",
+      "dominantEmotion": null,
       "tone": {
-        "positive": 8.4,
-        "negative": 7.5,
-        "score": 0.9
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-08-pt1-PgH5517-5",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "date": "2026-09-08",
+      "excerpt": "…142 (Tuesday, September 8, 2026)] [House] [Page H5517] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
+      "wordCount": 88,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 11.4,
+        "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "loyalty",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [
+          "justice"
+        ],
+        "loyalty": [
+          "allegiance",
+          "nation"
+        ],
+        "authority": [],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
       }
     }
   ]
