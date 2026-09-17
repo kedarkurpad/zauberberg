@@ -1,194 +1,309 @@
 {
-  "generatedAt": "2026-09-16T16:58:27.514Z",
-  "asOf": "2026-04-22",
+  "generatedAt": "2026-09-17T17:01:49.371Z",
+  "asOf": "2026-07-14",
   "source": "GovInfo Congressional Hearings (CHRG)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
     {
-      "granuleId": "CHRG-119hhrg64156",
-      "title": "Diversifying Risk: The Benefits of Reinsurance and Credit Risk Transfers",
-      "date": "2026-04-22",
-      "excerpt": "…et is running smoothly. The bottom line: Reinsurance and CRT help distribute risk across the market. Both make our insurance market and mortgage market operate safely and soundly. I would like to add the following document into the record for this hearing, an April 21, 2026, letter from the National Association of Real…",
-      "wordCount": 11848,
+      "granuleId": "CHRG-119hhrg64242",
+      "title": "AI on Main Street: How AI Is Shaping the Future of Small Business",
+      "date": "2026-07-14",
+      "excerpt": "…tee wisdom to discern the truth, courage to do what is right, and humility to listen with respect to one another. Help us to seek solutions that strengthen our nation, protect the freedoms we cherish, and honor the first--the trust placed in us by those we represent. We ask your blessings on our country, our servicemem…",
+      "wordCount": 21260,
       "moralFoundations": {
-        "care": 3,
-        "fairness": 0.3,
-        "loyalty": 2.4,
-        "authority": 1.4,
-        "purity": 0.9
+        "care": 3.1,
+        "fairness": 1.1,
+        "loyalty": 3.3,
+        "authority": 2.7,
+        "purity": 0.5
       },
-      "dominantFoundation": "care",
+      "dominantFoundation": "loyalty",
       "matchedKeywords": {
         "care": [
-          "safely",
-          "protection",
           "protect",
           "safety",
-          "protects"
+          "hurts",
+          "harm",
+          "hurting"
         ],
         "fairness": [
-          "fair",
-          "fairly"
+          "justice",
+          "bias",
+          "discrimination",
+          "rights",
+          "biases"
         ],
         "loyalty": [
-          "national",
-          "communities",
+          "nation",
+          "allegiance",
           "together",
-          "team",
-          "nation"
+          "communities",
+          "national"
         ],
         "authority": [
-          "lawler",
+          "respect",
           "order",
-          "legitimate",
+          "laws",
           "leadership",
-          "traditional"
+          "law"
         ],
         "purity": [
-          "since",
-          "single"
+          "single",
+          "since"
         ],
         "anger": [
-          "attacks"
+          "threatened",
+          "threaten",
+          "threat"
         ],
         "fear": [
-          "risk",
+          "worry",
           "risks",
-          "crisis",
-          "risky",
-          "danger"
+          "risk",
+          "fear",
+          "fears"
         ],
         "joy": [
-          "joyce",
-          "happens",
-          "happening",
+          "encourage",
           "hope",
-          "happen"
+          "happen",
+          "happens",
+          "happened"
         ],
         "sadness": [
-          "loss",
-          "declining"
+          "struggling"
         ],
         "positive": [
-          "benefits",
-          "strong",
-          "good",
           "opportunity",
-          "supporting"
+          "good",
+          "growth",
+          "secure",
+          "benefit"
         ],
         "negative": [
-          "bad",
-          "damage",
-          "crisis",
-          "weaknesses",
-          "declining"
+          "threatened",
+          "harm",
+          "threaten",
+          "threat",
+          "fail"
         ]
       },
       "emotions": {
         "anger": 0.1,
-        "fear": 19.9,
-        "joy": 0.8,
-        "sadness": 0.8
+        "fear": 2,
+        "joy": 1.7,
+        "sadness": 0
       },
       "dominantEmotion": "fear",
       "tone": {
-        "positive": 5.2,
-        "negative": 3.2,
-        "score": 2
+        "positive": 5.7,
+        "negative": 0.6,
+        "score": 5.1
       }
     },
     {
-      "granuleId": "CHRG-119hhrg64108",
-      "title": "Revisiting the Treasury-Fed Accord",
-      "date": "2026-03-18",
-      "excerpt": "…NDREW R. GARBARINO, New York RASHIDA TLAIB, Michigan SCOTT FITZGERALD, Wisconsin RITCHIE TORRES, New York MIKE FLOOD, Nebraska NIKEMA WILLIAMS, Georgia MICHAEL LAWLER, New York BRITTANY PETTERSEN, Colorado MONICA DE LA CRUZ, Texas CLEO FIELDS, Louisiana ANDREW OGLES, Tennessee JANELLE BYNUM, Oregon ZACHARY NUNN, Iowa S…",
-      "wordCount": 11922,
+      "granuleId": "CHRG-119hhrg64404",
+      "title": "The General Services Administration: Examining the Future of Federal Real Estate Management to Reduce Costs for the Taxpayer",
+      "date": "2026-03-04",
+      "excerpt": "…rease operational efficiency and reduce real estate costs.\\8\\ The USE IT Act also specifically directs that department and agency headquarters buildings in the National Capital Region be consolidated and excess space sold to meet the minimum 60 percent occupancy metric.\\9\\ ----------------------------------------------…",
+      "wordCount": 23161,
       "moralFoundations": {
-        "care": 0.9,
-        "fairness": 0.5,
-        "loyalty": 1,
-        "authority": 1.6,
-        "purity": 0.8
+        "care": 1.3,
+        "fairness": 0.4,
+        "loyalty": 3.2,
+        "authority": 2.5,
+        "purity": 1
       },
-      "dominantFoundation": "authority",
+      "dominantFoundation": "loyalty",
       "matchedKeywords": {
         "care": [
-          "kind",
-          "protecting",
           "suffers",
-          "protections",
-          "harm"
+          "kind",
+          "care",
+          "safety",
+          "harm's"
         ],
         "fairness": [
           "justice",
-          "equally",
-          "fair",
-          "equal"
+          "honest",
+          "honestly",
+          "fair"
         ],
         "loyalty": [
-          "nation's",
           "national",
-          "together",
-          "community"
+          "homeland",
+          "nation",
+          "community",
+          "communities"
         ],
         "authority": [
-          "lawler",
+          "authorities",
+          "authority",
           "order",
           "respect",
-          "authorities",
-          "authority"
+          "legitimate"
         ],
         "purity": [
           "since",
-          "clean",
-          "purely"
+          "single",
+          "degrades",
+          "sin",
+          "cleaned"
         ],
         "anger": [
-          "threat"
+          "aggressively",
+          "threatens",
+          "angry"
         ],
         "fear": [
+          "risks",
           "risk",
           "crisis",
-          "dangerous",
-          "dangers",
-          "risks"
+          "danger",
+          "fears"
+        ],
+        "joy": [
+          "hope",
+          "happening",
+          "happens",
+          "proud",
+          "happened"
+        ],
+        "sadness": [
+          "decline"
+        ],
+        "positive": [
+          "strong",
+          "improve",
+          "opportunity",
+          "security",
+          "opportunities"
+        ],
+        "negative": [
+          "fails",
+          "damage",
+          "crisis",
+          "fail",
+          "threatens"
+        ]
+      },
+      "emotions": {
+        "anger": 0.1,
+        "fear": 0.6,
+        "joy": 1.5,
+        "sadness": 0
+      },
+      "dominantEmotion": "joy",
+      "tone": {
+        "positive": 4.1,
+        "negative": 0.7,
+        "score": 3.4
+      }
+    },
+    {
+      "granuleId": "CHRG-119hhrg63127",
+      "title": "Worldwide Threats to the Homeland",
+      "date": "2025-12-11",
+      "excerpt": "- WORLDWIDE THREATS TO THE HOMELAND [House Hearing, 119 Congress] [From the U.S. Government Publishing Office] WORLDWIDE THREATS TO THE HOMELAND ==========================================…",
+      "wordCount": 53178,
+      "moralFoundations": {
+        "care": 4.3,
+        "fairness": 1.1,
+        "loyalty": 9.3,
+        "authority": 6.6,
+        "purity": 1.7
+      },
+      "dominantFoundation": "loyalty",
+      "matchedKeywords": {
+        "care": [
+          "safe",
+          "safeguard",
+          "protect",
+          "protects",
+          "suffering"
+        ],
+        "fairness": [
+          "unfair",
+          "corrupt",
+          "rights",
+          "justice",
+          "corruption"
+        ],
+        "loyalty": [
+          "homeland",
+          "national",
+          "together",
+          "nationwide",
+          "nation"
+        ],
+        "authority": [
+          "order",
+          "respectful",
+          "traditions",
+          "law",
+          "leaders"
+        ],
+        "purity": [
+          "since",
+          "corrupt",
+          "corruption",
+          "single",
+          "sinoloa"
+        ],
+        "anger": [
+          "threats",
+          "attacks",
+          "attack",
+          "threat",
+          "attacked"
+        ],
+        "fear": [
+          "afraid",
+          "risk",
+          "crisis",
+          "fear",
+          "dangers"
         ],
         "joy": [
           "joyce",
           "hope",
-          "happen",
-          "encourage",
-          "hopefully"
+          "happy",
+          "celebrations",
+          "celebration"
         ],
         "sadness": [
-          "loss"
+          "tragic",
+          "grief",
+          "decline",
+          "sadly",
+          "struggled"
         ],
         "positive": [
-          "support",
-          "stronger",
-          "improve",
           "security",
-          "opportunity"
+          "strong",
+          "good",
+          "security's",
+          "secure"
         ],
         "negative": [
+          "threats",
           "threat",
           "crisis",
-          "dangerous",
-          "dangers",
-          "harm"
+          "corrupt",
+          "corruption"
         ]
       },
       "emotions": {
-        "anger": 0.2,
-        "fear": 2.6,
-        "joy": 1.1,
-        "sadness": 0.1
+        "anger": 8.2,
+        "fear": 1.5,
+        "joy": 1.3,
+        "sadness": 0.3
       },
-      "dominantEmotion": "fear",
+      "dominantEmotion": "anger",
       "tone": {
-        "positive": 5.2,
-        "negative": 1.8,
-        "score": 3.4
+        "positive": 8.4,
+        "negative": 7.5,
+        "score": 0.9
       }
     },
     {
@@ -289,109 +404,6 @@
         "positive": 5.3,
         "negative": 3.1,
         "score": 2.2
-      }
-    },
-    {
-      "granuleId": "CHRG-118hhrg58134",
-      "title": "Fact and Fiction: Getting to the Bottom of the VA Budget Shortfall",
-      "date": "2024-12-05",
-      "excerpt": "…ging. VA's leaders have not been shy about asking for billions of extra taxpayer dollars. However, when we dig into how they came up with those numbers we get, kind of, the runaround and as it is there is no true answer from anyone. All the estimates are wrong. Basic figures about how much they have already spent are w…",
-      "wordCount": 25640,
-      "moralFoundations": {
-        "care": 7.7,
-        "fairness": 0.3,
-        "loyalty": 3.2,
-        "authority": 1.3,
-        "purity": 1.2
-      },
-      "dominantFoundation": "care",
-      "matchedKeywords": {
-        "care": [
-          "kind",
-          "care",
-          "safety",
-          "safely",
-          "safeguards"
-        ],
-        "fairness": [
-          "honest",
-          "justice",
-          "corruption",
-          "honesty"
-        ],
-        "loyalty": [
-          "community",
-          "patriotic",
-          "communities",
-          "nation's",
-          "teams"
-        ],
-        "authority": [
-          "order",
-          "leaders",
-          "law",
-          "respected",
-          "leadership"
-        ],
-        "purity": [
-          "single",
-          "since",
-          "corruption",
-          "moral"
-        ],
-        "anger": [
-          "attacks",
-          "hostile",
-          "aggressive",
-          "aggressively"
-        ],
-        "fear": [
-          "risk",
-          "anxiety",
-          "worries",
-          "dangerously",
-          "fear"
-        ],
-        "joy": [
-          "happen",
-          "encouraged",
-          "hope",
-          "happening",
-          "happened"
-        ],
-        "sadness": [
-          "struggles",
-          "struggle",
-          "loss",
-          "sadly",
-          "sad"
-        ],
-        "positive": [
-          "benefits",
-          "good",
-          "benefit",
-          "supported",
-          "support"
-        ],
-        "negative": [
-          "bad",
-          "failing",
-          "failure",
-          "dangerously",
-          "danger"
-        ]
-      },
-      "emotions": {
-        "anger": 0.4,
-        "fear": 1.5,
-        "joy": 1.6,
-        "sadness": 0.5
-      },
-      "dominantEmotion": "joy",
-      "tone": {
-        "positive": 7.9,
-        "negative": 0.8,
-        "score": 7.1
       }
     }
   ]
