@@ -9,9 +9,13 @@
  * Peace and Conflict module's forcibly-displaced-persons-by-region
  * breakdown, writing /peace-data.json, the discourse-tagging module's
  * lexicon-scored Congressional Record excerpts, writing /discourse-data.json
- * (see DECISIONS.md, "Discourse-tagging module"), and the Democracy
+ * (see DECISIONS.md, "Discourse-tagging module"), the Democracy
  * module's US Liberal Democracy Index (V-Dem, via OWID) time series,
- * writing /democracy-data.json (see DECISIONS.md, "Democracy module").
+ * writing /democracy-data.json (see DECISIONS.md, "Democracy module"),
+ * and the Legal case-narrative tagging module's lexicon-scored SEC EDGAR
+ * Legal Proceedings excerpts, writing /legal-data.json (additive to, not
+ * a replacement for, the discourse-tagging module \u2014 see DECISIONS.md,
+ * "Legal case-narrative tagging module").
  *
  * NOTE: crude-oil-imports-by-country-of-origin (fetchCrudeImports and its
  * treemap) was removed 2026-09-11 by request \u2014 see DECISIONS.md changelog.
@@ -96,10 +100,10 @@
  *   - If a fetch fails, we keep whatever value was already in ticker-data.json
  *     for that indicator rather than crashing the whole run or writing a blank.
  */
- 
+
 import { writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
- 
+
 const OUT_PATH = path.resolve(process.cwd(), "ticker-data.json");
 const ENERGY_OUT_PATH = path.resolve(process.cwd(), "energy-data.json");
 const GINI_OUT_PATH = path.resolve(process.cwd(), "gini-data.json");
@@ -107,11 +111,12 @@ const STUDENT_LOAN_OUT_PATH = path.resolve(process.cwd(), "student-loan-data.jso
 const PEACE_OUT_PATH = path.resolve(process.cwd(), "peace-data.json");
 const DISCOURSE_OUT_PATH = path.resolve(process.cwd(), "discourse-data.json");
 const DEMOCRACY_OUT_PATH = path.resolve(process.cwd(), "democracy-data.json");
- 
+const LEGAL_OUT_PATH = path.resolve(process.cwd(), "legal-data.json");
+
 const fmtPP = (n, digits = 1) => `${n.toFixed(digits)}pp`;
 const fmtSigned = (n, digits = 1, suffix = "pp") =>
   `${n >= 0 ? "+" : ""}${n.toFixed(digits)}${suffix}`;
- 
+
 async function loadExisting() {
   try {
     const raw = await readFile(OUT_PATH, "utf8");
@@ -123,7 +128,7 @@ async function loadExisting() {
     return {};
   }
 }
- 
+
 async function loadExistingEnergy() {
   try {
     const raw = await readFile(ENERGY_OUT_PATH, "utf8");
@@ -132,7 +137,7 @@ async function loadExistingEnergy() {
     return {};
   }
 }
- 
+
 async function loadExistingGini() {
   try {
     const raw = await readFile(GINI_OUT_PATH, "utf8");
@@ -141,7 +146,7 @@ async function loadExistingGini() {
     return {};
   }
 }
- 
+
 async function loadExistingStudentLoan() {
   try {
     const raw = await readFile(STUDENT_LOAN_OUT_PATH, "utf8");
@@ -150,7 +155,7 @@ async function loadExistingStudentLoan() {
     return {};
   }
 }
- 
+
 async function loadExistingPeace() {
   try {
     const raw = await readFile(PEACE_OUT_PATH, "utf8");
@@ -159,7 +164,7 @@ async function loadExistingPeace() {
     return {};
   }
 }
- 
+
 async function loadExistingDiscourse() {
   try {
     const raw = await readFile(DISCOURSE_OUT_PATH, "utf8");
@@ -168,7 +173,7 @@ async function loadExistingDiscourse() {
     return {};
   }
 }
- 
+
 async function loadExistingDemocracy() {
   try {
     const raw = await readFile(DEMOCRACY_OUT_PATH, "utf8");
@@ -177,26 +182,43 @@ async function loadExistingDemocracy() {
     return {};
   }
 }
- 
+
+async function loadExistingLegal() {
+  try {
+    const raw = await readFile(LEGAL_OUT_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
 async function safeFetchJson(url, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
   return res.json();
 }
- 
+
 // GDELT's public API has no uptime SLA and is occasionally slow or
 // unreachable from CI runners (network-level "fetch failed", not an HTTP
 // error). Retry a couple of times with a short timeout before giving up and
 // letting main() fall back to the previous value.
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36";
- 
+
+// SEC's own developer documentation asks requesters to identify
+// themselves honestly (app name + contact email), not with a browser
+// string, and to moderate request volume \u2014 see DECISIONS.md, "Legal
+// case-narrative tagging module," for why this is deliberately NOT
+// BROWSER_UA. PLACEHOLDER: replace the contact email below with a real
+// one before running this against SEC's servers unattended.
+const SEC_UA = "Zauberberg-Dashboard/1.0 (contact: REPLACE_WITH_REAL_CONTACT_EMAIL@example.com)";
+
 async function safeFetchText(url, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`);
   return res.text();
 }
- 
+
 // ---- FRED: 10Y-2Y Treasury Yield Spread (T10Y2Y) ----
 async function fetchFred() {
   const key = process.env.FRED_API_KEY;
@@ -217,7 +239,7 @@ async function fetchFred() {
     asOf: obs[0].date,
   };
 }
- 
+
 // ---- FRED: Labor Share of Income (Penn World Table via FRED) ----
 // Deliberately using LABSHPUSA156NRUG (units: Ratio, i.e. unambiguously a
 // share of GDP) rather than BLS's quarterly index series (PRS84006173),
@@ -257,7 +279,7 @@ async function fetchLaborShare() {
     note: "Annual release \u2014 value is static between updates. Source has no scheduled next release as of 2026-09-11.",
   };
 }
- 
+
 // ---- FRED: Nominal Broad U.S. Dollar Index (currency hegemony proxy) ----
 // Trade-weighted dollar index, daily, index Jan 2006=100. Reuses
 // FRED_API_KEY \u2014 no new secret needed. Pillar 1 fit: Strange's
@@ -282,8 +304,8 @@ async function fetchDollarIndex() {
     asOf: obs[0].date,
   };
 }
- 
- 
+
+
 async function fetchBls() {
   const key = process.env.BLS_API_KEY; // optional
   const seriesid = ["LNS14000006", "LNS14000003"]; // Black, White (seas. adj.)
@@ -326,7 +348,7 @@ async function fetchBls() {
     asOf: `${black[0].year}-${black[0].period.replace("M", "")}`,
   };
 }
- 
+
 // ---- OWID (WID.world-sourced): Global Top 1% Wealth Share ----
 // Minimal CSV line parser (handles quoted fields) — OWID's CSVs are simple,
 // but this avoids silently misaligning columns if a field is ever quoted.
@@ -348,7 +370,7 @@ function parseCsvLine(line) {
   out.push(cur);
   return out.map((s) => s.trim());
 }
- 
+
 async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderRegex }) {
   const csv = await safeFetchText(url, { headers: { "User-Agent": BROWSER_UA } });
   const lines = csv.split(/\r?\n/).filter(Boolean);
@@ -365,7 +387,7 @@ async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderReg
   const valueIdx = preferValueHeaderRegex
     ? candidateIdxs.find((idx) => preferValueHeaderRegex.test(header[idx])) ?? candidateIdxs[0]
     : candidateIdxs[0];
- 
+
   const rows = lines
     .slice(1)
     .map(parseCsvLine)
@@ -384,7 +406,7 @@ async function fetchOwidPercentIndicator({ url, entityName, preferValueHeaderReg
     year: latest[yearIdx],
   };
 }
- 
+
 async function fetchWealthShare() {
   const url =
     "https://ourworldindata.org/grapher/wealth-share-richest.csv?v=1&csvType=full&useColumnShortNames=false&quantile=richest_1pct";
@@ -412,7 +434,7 @@ async function fetchWealthShare() {
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
 }
- 
+
 // ---- OWID (WID.world-sourced): US Top 1% Income Share (before tax) ----
 async function fetchIncomeShareUS() {
   const url =
@@ -439,7 +461,7 @@ async function fetchIncomeShareUS() {
     note: "Annual release \u2014 value is static between WID.world's yearly updates.",
   };
 }
- 
+
 // ---- OWID (V-Dem-sourced): US Liberal Democracy Index, full annual time series ----
 // Powers the Democracy (Pillar 1) panel's line chart — see index.html and
 // DECISIONS.md, "Democracy module." Pillar 1 fit, per the 2026-09-13
@@ -479,7 +501,7 @@ async function fetchDemocracySeries() {
   if (entityIdx === -1 || yearIdx === -1 || valueIdx === undefined) {
     throw new Error(`OWID: unexpected liberal-democracy-index columns: ${header.join(" | ")}`);
   }
- 
+
   const rows = lines
     .slice(1)
     .map(parseCsvLine)
@@ -491,12 +513,12 @@ async function fetchDemocracySeries() {
     )
     .map((cols) => ({ year: Number(cols[yearIdx]), value: parseFloat(cols[valueIdx]) }))
     .sort((a, b) => a.year - b.year);
- 
+
   if (rows.length < 2) throw new Error("OWID: not enough usable United States liberal-democracy-index rows");
- 
+
   const latest = rows[rows.length - 1];
   const prev = rows[rows.length - 2];
- 
+
   // PLAUSIBILITY GUARD, same convention as fetchDisplacement(): LDI is
   // bounded [0, 1] by construction. A parsed value outside a generous
   // [0, 1] band is a stronger signal of a column-mapping bug (e.g. picking
@@ -505,7 +527,7 @@ async function fetchDemocracySeries() {
   if (latest.value < 0 || latest.value > 1) {
     throw new Error(`OWID: parsed liberal-democracy-index value (${latest.value}) outside the valid [0, 1] range \u2014 likely a column mismatch`);
   }
- 
+
   return {
     asOf: String(latest.year),
     latestValue: latest.value,
@@ -513,7 +535,7 @@ async function fetchDemocracySeries() {
     series: rows,
   };
 }
- 
+
 // ---- FRED: US Home Price Index, YoY growth (asset-wealth inequality framing) ----
 // Pillar 2 fit, added 2026-09-11 by request: the ticker VALUE is the
 // year-over-year appreciation rate, not the raw index level (an index
@@ -554,11 +576,11 @@ async function fetchHousingPriceIndex() {
     .filter((o) => o.value !== ".")
     .map((o) => ({ date: o.date, value: parseFloat(o.value) }));
   if (obs.length < 14) throw new Error("FRED: not enough usable CSUSHPISA observations for two YoY points");
- 
+
   const yoy = (i) => (obs[i].value / obs[i + 12].value - 1) * 100;
   const latestYoy = yoy(0);
   const prevYoy = yoy(1);
- 
+
   return {
     id: "housing-price-index",
     name: "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)",
@@ -570,8 +592,8 @@ async function fetchHousingPriceIndex() {
     note: "Value is year-over-year home-price appreciation; change is the month-over-month shift in that YoY rate (i.e. whether asset-wealth gains are accelerating or decelerating), not a simple index-point diff.",
   };
 }
- 
- 
+
+
 // ---- EIA: Strategic Petroleum Reserve, weekly crude oil ending stocks ----
 // Pillar 4 fit: an SPR level is a held strategic energy buffer/leverage,
 // i.e. energy security as state power (Mitchell, Carbon Democracy) — not
@@ -606,8 +628,8 @@ async function fetchSPR() {
     asOf: String(rows[0].period),
   };
 }
- 
- 
+
+
 // ---- FRED: US Household Income Gini Ratio, full annual time series ----
 // Powers the Distributional Justice (Pillar 2) panel's line chart — see
 // index.html and DECISIONS.md, "Distributional Justice module
@@ -648,7 +670,7 @@ async function fetchGiniSeries() {
     series,
   };
 }
- 
+
 // ---- FRED: Student Loans Owned and Securitized (structural-power/leverage framing) ----
 // Powers the Structural Power & Political Economy (Pillar 1) panel's line
 // chart — see index.html and DECISIONS.md, "Structural Power module
@@ -692,7 +714,7 @@ async function fetchStudentLoanSeries() {
     series,
   };
 }
- 
+
 // ---- EIA: U.S. electricity generation mix, bucketed fossil/nuclear/renewables ----
 // Powers the Energy module's generation-mix stacked area chart (see
 // index.html, DECISIONS.md "Energy module visualizations"). Pillar 4 fit:
@@ -710,7 +732,7 @@ async function fetchStudentLoanSeries() {
 async function fetchGenerationMix() {
   const key = process.env.EIA_API_KEY;
   if (!key) throw new Error("EIA_API_KEY not set");
- 
+
   const FUEL_BUCKETS = {
     fossil: ["COW", "PEL", "NG"], // coal, petroleum liquids, natural gas
     nuclear: ["NUC"],
@@ -721,7 +743,7 @@ async function fetchGenerationMix() {
   for (const [bucket, codes] of Object.entries(FUEL_BUCKETS)) {
     for (const code of codes) codeToBucket[code] = bucket;
   }
- 
+
   const params = new URLSearchParams({
     api_key: key,
     frequency: "annual",
@@ -734,12 +756,12 @@ async function fetchGenerationMix() {
     length: String(allCodes.length * 8), // ~8 years' worth per fuel type, generously
   });
   for (const code of allCodes) params.append("facets[fueltypeid][]", code);
- 
+
   const url = `https://api.eia.gov/v2/electricity/electric-power-operational-data/data/?${params.toString()}`;
   const data = await safeFetchJson(url);
   const rows = data?.response?.data ?? [];
   if (!rows.length) throw new Error("EIA: no generation-mix rows returned");
- 
+
   const byPeriod = {};
   for (const row of rows) {
     const bucket = codeToBucket[row.fueltypeid];
@@ -748,10 +770,10 @@ async function fetchGenerationMix() {
     byPeriod[row.period] ??= { fossil: 0, nuclear: 0, renewables: 0 };
     byPeriod[row.period][bucket] += val;
   }
- 
+
   const periods = Object.keys(byPeriod).sort((a, b) => b.localeCompare(a));
   if (!periods.length) throw new Error("EIA: could not bucket any generation-mix rows");
- 
+
   // Drop the most recent period if it looks partial (well under the
   // second-most-recent year's total) so a part-year doesn't render as a
   // misleadingly low/high share.
@@ -763,7 +785,7 @@ async function fetchGenerationMix() {
     }
     return true;
   });
- 
+
   const series = completePeriods
     .slice(0, 6)
     .sort((a, b) => a.localeCompare(b))
@@ -777,10 +799,10 @@ async function fetchGenerationMix() {
         renewables: Math.round((renewables / total) * 1000) / 10,
       };
     });
- 
+
   return { asOf: completePeriods[0], series };
 }
- 
+
 // ---- FRED: Energy price volatility (WTI crude, 20-trading-day realized vol) ----
 // Pillar 4 leverage framing, added 2026-09-11 by request: the SIGNAL here
 // is the *swing*, not the price level. A bare WTI spot price would fail
@@ -819,11 +841,11 @@ async function fetchEnergyVolatility() {
     .filter((o) => o.value !== ".")
     .map((o) => ({ date: o.date, value: parseFloat(o.value) }))
     .sort((a, b) => b.date.localeCompare(a.date)); // newest first
- 
+
   if (obs.length < 22) throw new Error("FRED: not enough usable DCOILWTICO observations for a 20-return window");
- 
+
   const logReturn = (newer, older) => Math.log(newer.value / older.value);
- 
+
   const stdevAnnualized = (window) => {
     // window: newest-first array of closes; produces window.length - 1 returns
     const returns = [];
@@ -832,10 +854,10 @@ async function fetchEnergyVolatility() {
     const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / (returns.length - 1);
     return Math.sqrt(variance) * Math.sqrt(252) * 100; // annualized, as a percent
   };
- 
+
   const latestVol = stdevAnnualized(obs.slice(0, 21));   // most recent 20 returns
   const prevVol = stdevAnnualized(obs.slice(1, 22));     // window shifted back one observation
- 
+
   return {
     id: "energy-price-volatility",
     name: "Energy Price Volatility \u2014 WTI 20-Day Realized Vol (FRED: DCOILWTICO)",
@@ -847,8 +869,8 @@ async function fetchEnergyVolatility() {
     note: "Annualized realized volatility of WTI crude over the trailing 20 trading days \u2014 the swing, not the price level, is the Pillar 4 signal (supply-shock/geopolitical exposure).",
   };
 }
- 
- 
+
+
 // ---- UNHCR: Forcibly Displaced Persons, Global Total (Pillar 3) ----
 // Added 2026-09-11 by request. Sum of refugees, asylum-seekers, IDPs, and
 // other people in need of international protection (UNHCR's own "forcibly
@@ -905,7 +927,7 @@ async function fetchDisplacement() {
   console.log("[diag] /population (global) sample row:", JSON.stringify(rows[0] ?? null));
   console.log("[diag] /population (global) row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable population rows returned");
- 
+
   const byYear = {};
   for (const r of rows) {
     const y = Number(r.year);
@@ -922,7 +944,7 @@ async function fetchDisplacement() {
   const prevYear = years[1] ?? latestYear;
   const latest = byYear[latestYear] / 1_000_000; // persons -> millions
   const prev = byYear[prevYear] / 1_000_000;
- 
+
   // PLAUSIBILITY GUARD (added 2026-09-11, kept as defense-in-depth even
   // after the real fix above): UNHCR's own published global figure has
   // been in roughly the 100\u2013130M range for the past few years. A result
@@ -934,7 +956,7 @@ async function fetchDisplacement() {
       `UNHCR: aggregated global total (${latest.toFixed(1)}M) is outside the plausible [50M, 300M] range \u2014 likely a field-name mismatch, see the [diag] log lines above`
     );
   }
- 
+
   return {
     id: "forcibly-displaced",
     name: "Forcibly Displaced Persons \u2014 Global Total (UNHCR)",
@@ -946,7 +968,7 @@ async function fetchDisplacement() {
     note: "Refugees + asylum-seekers + IDPs + other people in need of international protection, per UNHCR's own \u2018forcibly displaced\u2019 definition. Annual release \u2014 value is static between updates.",
   };
 }
- 
+
 // ---- UNHCR: Forcibly displaced persons by region of origin (Pillar 3 panel chart) ----
 // Powers the Peace and Conflict (Pillar 3) panel's grouped bar chart \u2014
 // see index.html and DECISIONS.md, "Peace and Conflict module
@@ -984,7 +1006,7 @@ async function fetchDisplacementByRegion() {
     const region = c.unhcr_region_name ?? c.unhcrRegionName ?? c.region ?? "Other/unknown";
     if (code) regionByCode[code] = region;
   }
- 
+
   // REVISED ROOT CAUSE (2026-09-12, after fetchDisplacement()'s 15.0M
   // undercount exposed the same bug here): UNHCR's docs say a dimension
   // "if not specified... will be summed and aggregated to one row" \u2014
@@ -1018,7 +1040,7 @@ async function fetchDisplacementByRegion() {
   console.log("[diag] /population sample row:", JSON.stringify(rows[0] ?? null));
   console.log("[diag] /population row count:", rows.length);
   if (!rows.length) throw new Error("UNHCR: no usable by-origin population rows returned");
- 
+
   const byRegion = {};
   let asOfYear = null;
   for (const r of rows) {
@@ -1032,15 +1054,15 @@ async function fetchDisplacementByRegion() {
       (Number(r.oip) || 0);
     byRegion[region] = (byRegion[region] ?? 0) + total;
   }
- 
+
   const series = Object.entries(byRegion)
     .map(([region, total]) => ({ region, millions: Math.round((total / 1_000_000) * 100) / 100 }))
     .filter((d) => d.millions > 0)
     .sort((a, b) => b.millions - a.millions)
     .slice(0, 7); // top regions; keeps the bar chart readable
- 
+
   if (!series.length) throw new Error("UNHCR: could not bucket any by-origin rows into regions");
- 
+
   // SANITY CHECK (added 2026-09-11, after the first real run silently
   // published a one-region chart \u2014 see DECISIONS.md): a real global
   // breakdown should span at least a handful of regions. If parsing is
@@ -1054,10 +1076,10 @@ async function fetchDisplacementByRegion() {
       `UNHCR: only ${series.length} region(s) had nonzero totals (expected several) \u2014 likely a field-name mismatch in fetchDisplacementByRegion(), see the [diag] log lines above for the real response shape`
     );
   }
- 
+
   return { asOf: String(asOfYear ?? thisYear), series };
 }
- 
+
 // ---- Lexicon-based discourse tagging: Moral Foundations Dictionary + NRC-style emotion lexicon ----
 // Powers the footer's "Discourse-tagging output format" module (see
 // index.html, DECISIONS.md "Discourse-tagging module"). Pillar 1 fit per
@@ -1104,7 +1126,7 @@ const EMOTION_LEXICON = {
   positive: ["good", "benefit*", "support*", "success*", "strong*", "improve*", "progress*", "opportunit*", "growth", "secur*"],
   negative: ["bad", "fail*", "threat*", "crisis", "declin*", "harm*", "damag*", "weak*", "danger*", "corrupt*"],
 };
- 
+
 // Compiles a lexicon (category -> array of literal/"prefix*" entries) into
 // per-category RegExp arrays, so scoring is a single pass over the token
 // list rather than repeated substring scans.
@@ -1121,7 +1143,63 @@ function compileLexicon(lexicon) {
 }
 const COMPILED_MFD = compileLexicon(MORAL_FOUNDATIONS_LEXICON);
 const COMPILED_EMOTION = compileLexicon(EMOTION_LEXICON);
- 
+
+// ---- Legal Outcome Lexicon (starter subset) — powers the new Legal
+// case-narrative tagging module (Pillar 1). See DECISIONS.md, "Legal
+// case-narrative tagging module." Unlike the Moral Foundations Dictionary
+// and the NRC-style emotion lexicon, there is no single canonical
+// published "legal outcome dictionary" to cite here — this is an
+// in-house starter subset (same "illustrative, not exhaustive" caveat as
+// the other two lexicons), covering four common postures a corporate
+// Legal Proceedings disclosure takes: an admission/finding of fault
+// (liability), a resolved-outcome posture (remediation), an
+// agency/enforcement posture (regulatory), and an unresolved/ongoing
+// posture (procedural). Scored ALONGSIDE the existing MFD + emotion
+// lexicons (not instead of), so legal-narrative entries are directly
+// comparable to Congress entries on the moral-foundation/emotion axes,
+// with this lexicon adding the domain-specific layer.
+const LEGAL_OUTCOME_LEXICON = {
+  liability: ["liable", "liabilit*", "negligen*", "breach*", "violat*", "fault*", "wrongdo*", "misconduct", "fraud*", "infring*", "damages"],
+  remediation: ["settl*", "resolv*", "remed*", "restitution", "consent decree", "agreed to pay", "penalt*", "fine*", "dismiss*", "vacat*"],
+  regulatory: ["sec", "commission", "enforcement", "investigat*", "subpoena*", "complaint", "charge*", "sanction*", "compliance", "consent order"],
+  procedural: ["pending", "ongoing", "appeal*", "motion*", "discovery", "hearing", "litigation", "plaintiff*", "defendant*", "court*", "alleg*"],
+};
+const COMPILED_LEGAL = compileLexicon(LEGAL_OUTCOME_LEXICON);
+
+// Generalized per-category matcher, factored out of what used to be
+// scoreText()'s inline scoreCategory() closure, so a lexicon set beyond
+// MFD/emotion (e.g. LEGAL_OUTCOME_LEXICON, and eventually a clinical
+// lexicon) can reuse the exact same matching/rate/dominant-category logic
+// instead of a third hand-rolled copy. scoreText()'s own return shape and
+// callers (fetchDiscourseTags(), index.html's entryToCard()) are
+// unchanged by this refactor.
+function scoreAgainstLexiconSet(tokens, wordCount, compiledLexiconSet) {
+  const raw = {};
+  const rateOut = {};
+  const matched = {};
+  const rate = (n) => (wordCount > 0 ? Math.round((n / wordCount) * 1000 * 10) / 10 : 0);
+  for (const [cat, compiledCategory] of Object.entries(compiledLexiconSet)) {
+    const hits = [];
+    for (const tok of tokens) {
+      if (compiledCategory.some((re) => re.test(tok))) hits.push(tok);
+    }
+    raw[cat] = hits.length;
+    rateOut[cat] = rate(hits.length);
+    matched[cat] = [...new Set(hits)].slice(0, 5);
+  }
+  return { raw, rate: rateOut, matched };
+}
+
+function dominantCategory(rawObj, rateObj, excludeKeys = []) {
+  let best = null;
+  for (const [cat, raw] of Object.entries(rawObj)) {
+    if (excludeKeys.includes(cat)) continue;
+    if (raw < MIN_MATCHES) continue;
+    if (!best || rateObj[cat] > rateObj[best]) best = cat;
+  }
+  return best; // null if nothing clears MIN_MATCHES
+}
+
 function stripHtml(html) {
   return html
     .replace(/<[^>]+>/g, " ")
@@ -1131,7 +1209,7 @@ function stripHtml(html) {
     .replace(/\s+/g, " ")
     .trim();
 }
- 
+
 // Scores one text against both compiled lexicons. Returns rates per 1,000
 // words (not raw counts) so a long floor speech and a short one-minute
 // statement are comparable, plus the dominant category in each lexicon
@@ -1145,70 +1223,80 @@ const MIN_MATCHES = 2;
 // below-threshold placeholder cards reach the live page).
 const DISCOURSE_LOOKBACK_DAYS = 21;
 const DISCOURSE_TARGET_COUNT = 4;
- 
+
+// Same "one qualifying entry per calendar day, walk back to fill a
+// trailing target" convention as the DISCOURSE_ constants above \u2014 see
+// fetchLegalCaseTags() and DECISIONS.md, "Legal case-narrative tagging
+// module." Most Legal Proceedings sections are boilerplate ("None," or a
+// one-line disclaimer) that won't clear MIN_MATCHES, so the lookback is
+// wider than the Congress module's.
+const LEGAL_LOOKBACK_DAYS = 30;
+const LEGAL_TARGET_COUNT = 4;
+
+// NOTE: the per-category matching loop this used to inline (scoreCategory)
+// was factored out into the shared scoreAgainstLexiconSet()/
+// dominantCategory() helpers above (see DECISIONS.md, "Legal
+// case-narrative tagging module"), so scoreLegalText() below can reuse
+// the identical logic. This function's own return shape \u2014 and therefore
+// fetchDiscourseTags() and index.html's entryToCard() \u2014 is unchanged.
 function scoreText(text) {
   const tokens = (text.toLowerCase().match(/[a-z']+/g) || []);
   const wordCount = tokens.length;
- 
-  // Returns both the raw hit count and up to 5 distinct example words that
-  // actually matched \u2014 the matched-word list is what gets surfaced in the
-  // UI (see index.html), since showing the literal dictionary hits is more
-  // auditable/interpretable than a prose excerpt. See DECISIONS.md,
-  // "Discourse-tagging module" for why this replaced a raw text excerpt.
-  const scoreCategory = (compiledCategory) => {
-    const hits = [];
-    for (const tok of tokens) {
-      if (compiledCategory.some((re) => re.test(tok))) hits.push(tok);
-    }
-    return { raw: hits.length, matched: [...new Set(hits)].slice(0, 5) };
-  };
- 
-  const rate = (raw) => (wordCount > 0 ? Math.round((raw / wordCount) * 1000 * 10) / 10 : 0);
- 
-  const mfdRaw = {};
-  const mfdRate = {};
-  const mfdMatched = {};
-  for (const [cat, res] of Object.entries(COMPILED_MFD)) {
-    const { raw, matched } = scoreCategory(res);
-    mfdRaw[cat] = raw;
-    mfdRate[cat] = rate(raw);
-    mfdMatched[cat] = matched;
-  }
-  const emoRaw = {};
-  const emoRate = {};
-  const emoMatched = {};
-  for (const [cat, res] of Object.entries(COMPILED_EMOTION)) {
-    const { raw, matched } = scoreCategory(res);
-    emoRaw[cat] = raw;
-    emoRate[cat] = rate(raw);
-    emoMatched[cat] = matched;
-  }
- 
-  const dominant = (rawObj, rateObj, excludeKeys = []) => {
-    let best = null;
-    for (const [cat, raw] of Object.entries(rawObj)) {
-      if (excludeKeys.includes(cat)) continue;
-      if (raw < MIN_MATCHES) continue;
-      if (!best || rateObj[cat] > rateObj[best]) best = cat;
-    }
-    return best; // null if nothing clears MIN_MATCHES
-  };
- 
-  const dominantFoundation = dominant(mfdRaw, mfdRate);
-  const dominantEmotion = dominant(emoRaw, emoRate, ["positive", "negative"]);
-  const toneScore = mfdRaw ? Math.round((emoRate.positive - emoRate.negative) * 10) / 10 : 0;
- 
+
+  const mfd = scoreAgainstLexiconSet(tokens, wordCount, COMPILED_MFD);
+  const emo = scoreAgainstLexiconSet(tokens, wordCount, COMPILED_EMOTION);
+
+  const dominantFoundation = dominantCategory(mfd.raw, mfd.rate);
+  const dominantEmotion = dominantCategory(emo.raw, emo.rate, ["positive", "negative"]);
+  const toneScore = Math.round((emo.rate.positive - emo.rate.negative) * 10) / 10;
+
   return {
     wordCount,
-    moralFoundations: mfdRate,
+    moralFoundations: mfd.rate,
     dominantFoundation,
-    matchedKeywords: { ...mfdMatched, ...emoMatched },
-    emotions: { anger: emoRate.anger, fear: emoRate.fear, joy: emoRate.joy, sadness: emoRate.sadness },
+    // Matched-word list is what gets surfaced in the UI (see index.html)
+    // \u2014 showing the literal dictionary hits is more auditable than a
+    // prose excerpt. See DECISIONS.md, "Discourse-tagging module."
+    matchedKeywords: { ...mfd.matched, ...emo.matched },
+    emotions: { anger: emo.rate.anger, fear: emo.rate.fear, joy: emo.rate.joy, sadness: emo.rate.sadness },
     dominantEmotion,
-    tone: { positive: emoRate.positive, negative: emoRate.negative, score: toneScore },
+    tone: { positive: emo.rate.positive, negative: emo.rate.negative, score: toneScore },
   };
 }
- 
+
+// ---- Scores text against the Legal Outcome Lexicon + the existing MFD
+// and emotion lexicons \u2014 powers the Legal case-narrative tagging module
+// (Pillar 1). Scoring the same MFD/emotion lexicons here too (not just
+// the legal-specific one) is deliberate: it keeps legal-narrative entries
+// directly comparable to Congress entries on those two axes, with
+// dominantLegalCategory as the added domain-specific layer. See
+// DECISIONS.md, "Legal case-narrative tagging module."
+function scoreLegalText(text) {
+  const tokens = (text.toLowerCase().match(/[a-z']+/g) || []);
+  const wordCount = tokens.length;
+
+  const legal = scoreAgainstLexiconSet(tokens, wordCount, COMPILED_LEGAL);
+  const mfd = scoreAgainstLexiconSet(tokens, wordCount, COMPILED_MFD);
+  const emo = scoreAgainstLexiconSet(tokens, wordCount, COMPILED_EMOTION);
+
+  const dominantLegalCategory = dominantCategory(legal.raw, legal.rate);
+  const dominantFoundation = dominantCategory(mfd.raw, mfd.rate);
+  const dominantEmotion = dominantCategory(emo.raw, emo.rate, ["positive", "negative"]);
+  const toneScore = Math.round((emo.rate.positive - emo.rate.negative) * 10) / 10;
+
+  return {
+    wordCount,
+    legalCategories: legal.rate,
+    dominantLegalCategory,
+    moralFoundations: mfd.rate,
+    dominantFoundation,
+    matchedKeywords: { ...legal.matched, ...mfd.matched, ...emo.matched },
+    emotions: { anger: emo.rate.anger, fear: emo.rate.fear, joy: emo.rate.joy, sadness: emo.rate.sadness },
+    dominantEmotion,
+    tone: { positive: emo.rate.positive, negative: emo.rate.negative, score: toneScore },
+  };
+}
+
 // Builds a context excerpt centered on the FIRST matched dictionary word,
 // rather than a blind first-N-characters slice \u2014 added by request so cards
 // show real surrounding context instead of only a bare word list (see
@@ -1234,8 +1322,8 @@ function buildExcerpt(text, matchedWords, windowChars = 160) {
   const end = Math.min(text.length, pos + windowChars);
   return (start > 0 ? "\u2026" : "") + text.slice(start, end).trim() + (end < text.length ? "\u2026" : "");
 }
- 
- 
+
+
 // Official daily speech transcripts \u2014 fits the already-logged input
 // scope ("public speech transcripts, official party platform
 // publications... not private citizens' social media"). Fully keyless in
@@ -1272,7 +1360,7 @@ function buildExcerpt(text, matchedWords, windowChars = 160) {
 // output at all.
 async function fetchDiscourseTags() {
   const key = process.env.GOVINFO_API_KEY || "DEMO_KEY";
- 
+
   // Fetch a wider window of packages up front (one call), then walk them
   // day-by-day, instead of re-querying collections/CREC per candidate day
   // \u2014 fewer requests against the shared DEMO_KEY's low rate limit.
@@ -1281,7 +1369,7 @@ async function fetchDiscourseTags() {
   const collectionsData = await safeFetchJson(collectionsUrl);
   const packages = collectionsData?.packages ?? [];
   if (!packages.length) throw new Error("GovInfo: no recent CREC packages found");
- 
+
   // Sort most-recent-first by the date embedded in packageId (CREC
   // packageIds are always "CREC-YYYY-MM-DD") rather than trusting the
   // collections response's own ordering, which the original write-up
@@ -1290,32 +1378,32 @@ async function fetchDiscourseTags() {
   const sorted = [...packages]
     .filter((p) => /CREC-\d{4}-\d{2}-\d{2}/.test(p.packageId ?? ""))
     .sort((a, b) => b.packageId.localeCompare(a.packageId));
- 
+
   const isFloorSpeech = (g) => {
     const cls = (g.granuleClass ?? g.docClass ?? "").toUpperCase();
     if (cls) return cls === "HOUSE" || cls === "SENATE";
     return !/daily digest|front matter/i.test(g.title ?? "");
   };
- 
+
   const entries = [];
   const seenDates = new Set();
- 
+
   for (const pkg of sorted) {
     if (entries.length >= DISCOURSE_TARGET_COUNT) break;
     const packageId = pkg.packageId;
     const date = packageId.match(/CREC-(\d{4}-\d{2}-\d{2})/)?.[1];
     if (!date || seenDates.has(date)) continue;
     seenDates.add(date);
- 
+
     try {
       const granulesUrl = `https://api.govinfo.gov/packages/${packageId}/granules?offsetMark=*&pageSize=20&api_key=${key}`;
       const granulesData = await safeFetchJson(granulesUrl);
       const allGranules = granulesData?.granules ?? [];
       if (!allGranules.length) continue; // no granules this day; try the next-oldest package
- 
+
       const floorSpeech = allGranules.filter(isFloorSpeech);
       const candidates = (floorSpeech.length ? floorSpeech : allGranules).slice(0, 8);
- 
+
       // Score every candidate for the day, but keep only the single
       // strongest QUALIFYING one (highest combined dominant-category
       // rate) \u2014 a day contributes at most one card, same as the design
@@ -1339,9 +1427,9 @@ async function fetchDiscourseTags() {
           console.error(`[warn] discourse-tagging: skipped granule ${g.granuleId}: ${err.message}`);
         }
       }
- 
+
       if (!best) continue; // nothing this day cleared threshold; try the next-oldest package
- 
+
       const matchedWords = [
         ...(best.scored.dominantFoundation ? best.scored.matchedKeywords[best.scored.dominantFoundation] ?? [] : []),
         ...(best.scored.dominantEmotion ? best.scored.matchedKeywords[best.scored.dominantEmotion] ?? [] : []),
@@ -1357,9 +1445,9 @@ async function fetchDiscourseTags() {
       console.error(`[warn] discourse-tagging: skipped package ${packageId}: ${err.message}`);
     }
   }
- 
+
   if (!entries.length) throw new Error("GovInfo: no qualifying granules found in the trailing lookback window");
- 
+
   return {
     asOf: entries[0]?.date ?? null,
     source: "GovInfo Congressional Record (CREC)",
@@ -1367,7 +1455,140 @@ async function fetchDiscourseTags() {
     entries,
   };
 }
- 
+
+// ---- Legal case-narrative tagging: SEC EDGAR Legal Proceedings sections ----
+// Powers the new "Legal case-narrative tagging module" footer module (see
+// index.html, DECISIONS.md "Legal case-narrative tagging module"). Pillar
+// 1 fit (Strange): a company's disclosed legal exposure is itself a
+// structural-power signal, same "who holds leverage" test as the
+// Democracy module's extension. This is ADDITIVE to fetchDiscourseTags()
+// above \u2014 "Vibe of the Congress" is unchanged \u2014 and deliberately stays
+// lexicon-based/second-generation for the same interpretability reasons
+// already decided for the Congress module on 2026-09-12; see
+// scoreLegalText() above.
+//
+// SOURCE: SEC's own EDGAR Full-Text Search API (efts.sec.gov), keyless,
+// official, real-time per SEC's documentation \u2014 chosen over SEC
+// Litigation Releases (too sparse: a handful per week, not daily volume)
+// and over paid third-party SEC wrappers (unnecessary; SEC's own search
+// is free). Queries recent 10-K/10-Q/8-K filings, fetches each hit's
+// actual filing document, and locates the Legal Proceedings section
+// (Item 3, or Item 1 in some 10-Qs) by heading, extracting text up to the
+// next "Item" heading.
+//
+// USER-AGENT: uses SEC_UA (an honestly-identifying app+contact string),
+// NOT BROWSER_UA \u2014 see the SEC_UA constant's own comment and
+// DECISIONS.md for why this differs from the GDELT/UNHCR convention.
+// PLACEHOLDER CONTACT EMAIL must be replaced before unattended use.
+//
+// CAVEAT (same pattern as fetchSPR/fetchGenerationMix/fetchGiniSeries/
+// fetchDemocracySeries): written without a live test call (no network
+// egress in this build environment) \u2014 the efts.sec.gov query params and
+// the Item-3 heading regex are per SEC's public documentation and typical
+// filing structure, but unconfirmed against a real response. Verify the
+// first real Action run: does a hit's filing actually contain a
+// locatable Legal Proceedings section, and does the heading regex miss
+// any real-world heading variants (e.g. "Item 1. Legal Proceedings" in a
+// 10-Q vs. "Item 3. Legal Proceedings" in a 10-K)?
+//
+// Same "one qualifying entry per calendar day, walk back to fill a
+// trailing target" shape as fetchDiscourseTags() \u2014 see
+// LEGAL_LOOKBACK_DAYS/LEGAL_TARGET_COUNT above. A filing whose Legal
+// Proceedings section is boilerplate ("None," or a one-line disclaimer)
+// won't clear MIN_MATCHES and is skipped, not padded.
+async function fetchLegalCaseTags() {
+  const ITEM_HEADING_RE = /item\s*[13][a-z]?\.?\s*legal\s+proceedings/i;
+  const NEXT_ITEM_RE = /item\s*\d[a-z]?\.?\s+[a-z]/i;
+  const MAX_SECTION_CHARS = 6000;
+
+  const extractLegalProceedings = (text) => {
+    const m = ITEM_HEADING_RE.exec(text);
+    if (!m) return null;
+    const rest = text.slice(m.index + m[0].length);
+    // Find the next "Item N." heading after this one to bound the
+    // section; if none is found (e.g. truncated fetch), cap by length
+    // instead.
+    const nextMatch = NEXT_ITEM_RE.exec(rest.slice(50)); // skip a few chars so the same heading's own trailing text can't self-match
+    const end = nextMatch ? 50 + nextMatch.index : Math.min(rest.length, MAX_SECTION_CHARS);
+    return rest.slice(0, Math.min(end, MAX_SECTION_CHARS)).trim();
+  };
+
+  const since = new Date(Date.now() - LEGAL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const until = new Date().toISOString().slice(0, 10);
+  const searchUrl = `https://efts.sec.gov/LATEST/search-index?q=%22legal+proceedings%22&forms=10-K,10-Q,8-K&startdt=${since}&enddt=${until}`;
+  const searchData = await safeFetchJson(searchUrl, { headers: { "User-Agent": SEC_UA } });
+  const hits = searchData?.hits?.hits ?? [];
+  console.log("[diag] efts.sec.gov sample hit:", JSON.stringify(hits[0] ?? null));
+  console.log("[diag] efts.sec.gov hit count:", hits.length);
+  if (!hits.length) throw new Error("SEC EDGAR: no full-text-search hits returned");
+
+  // Sort most-recent-first by filing date and walk them, keeping at most
+  // one qualifying entry per calendar day \u2014 same convention as
+  // fetchDiscourseTags().
+  const withDate = hits
+    .map((h) => ({ hit: h, date: h?._source?.file_date ?? h?._source?.filedAt ?? null }))
+    .filter((x) => x.date)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const entries = [];
+  const seenDates = new Set();
+
+  for (const { hit, date } of withDate) {
+    if (entries.length >= LEGAL_TARGET_COUNT) break;
+    if (seenDates.has(date)) continue;
+
+    const src = hit._source ?? {};
+    const accessionNo = src.adsh ?? hit._id;
+    const cik = Array.isArray(src.ciks) ? src.ciks[0] : src.cik;
+    const company = Array.isArray(src.display_names) ? src.display_names[0] : (src.display_names ?? "(unknown filer)");
+    const form = src.root_form ?? src.form ?? "(unknown form)";
+    // The filing's primary document URL; efts.sec.gov results carry the
+    // pieces needed to reconstruct it (cik + accession + primary doc),
+    // per SEC's documented Archives path convention.
+    const adshNoDashes = String(accessionNo ?? "").replace(/-/g, "");
+    const primaryDoc = src.adsh_document ?? src.primary_doc ?? null;
+    if (!cik || !adshNoDashes || !primaryDoc) continue; // can't build a fetchable URL from this hit \u2014 skip to the next
+
+    seenDates.add(date);
+    try {
+      const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${adshNoDashes}/${primaryDoc}`;
+      const html = await safeFetchText(docUrl, { headers: { "User-Agent": SEC_UA } });
+      const text = stripHtml(html);
+      const section = extractLegalProceedings(text);
+      if (!section || section.length < 200) continue; // no locatable/substantial Legal Proceedings text this filing \u2014 try the next
+
+      const scored = scoreLegalText(section);
+      if (!scored.dominantLegalCategory && !scored.dominantFoundation && !scored.dominantEmotion) continue; // doesn't clear MIN_MATCHES on any axis
+
+      const matchedWords = [
+        ...(scored.dominantLegalCategory ? scored.matchedKeywords[scored.dominantLegalCategory] ?? [] : []),
+        ...(scored.dominantFoundation ? scored.matchedKeywords[scored.dominantFoundation] ?? [] : []),
+        ...(scored.dominantEmotion ? scored.matchedKeywords[scored.dominantEmotion] ?? [] : []),
+      ];
+
+      entries.push({
+        accessionNo,
+        company,
+        form,
+        date,
+        excerpt: buildExcerpt(section, matchedWords),
+        ...scored,
+      });
+    } catch (err) {
+      console.error(`[warn] legal-tagging: skipped filing ${accessionNo}: ${err.message}`);
+    }
+  }
+
+  if (!entries.length) throw new Error("SEC EDGAR: no qualifying Legal Proceedings sections found in the trailing lookback window");
+
+  return {
+    asOf: entries[0]?.date ?? null,
+    source: "SEC EDGAR (Legal Proceedings sections, 10-K/10-Q/8-K)",
+    method: "Lexicon-based scoring \u2014 Legal Outcome Lexicon + Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
+    entries,
+  };
+}
+
 // NOT in the `fetchers` pipeline below as of the core-set review: this
 // hardcodes change: "n/a" (single-point read, no prior-year diff ever
 // fetched), so it carries no data-driven indication of movement and was
@@ -1401,7 +1622,7 @@ async function fetchGini() {
   }
   throw new Error(`Census Gini: no year worked (${lastErr?.message})`);
 }
- 
+
 // ---- US Census: White-Black median household income gap (ACS 1-year) ----
 // NOT in the `fetchers` pipeline below \u2014 same reasoning as fetchGini()
 // above: change is hardcoded "n/a", no diff is computed, dropped from the
@@ -1436,7 +1657,7 @@ async function fetchIncomeGap() {
   }
   throw new Error(`Census income gap: no year worked (${lastErr?.message})`);
 }
- 
+
 async function main() {
   const existing = await loadExisting();
   const fetchers = [fetchFred, fetchLaborShare, fetchDollarIndex, fetchBls, fetchWealthShare, fetchIncomeShareUS, fetchHousingPriceIndex, fetchSPR, fetchEnergyVolatility, fetchDisplacement];
@@ -1462,14 +1683,14 @@ async function main() {
       if (existing[idGuess]) results.push(existing[idGuess]);
     }
   }
- 
+
   const output = {
     generatedAt: new Date().toISOString(),
     indicators: results,
   };
   await writeFile(OUT_PATH, JSON.stringify(output, null, 2) + "\n", "utf8");
   console.log(`Wrote ${OUT_PATH} with ${results.length} indicator(s).`);
- 
+
   // Energy module (generation mix): separate output file from the ticker,
   // since it's a chart series rather than a single indicator value — see
   // DECISIONS.md, "Energy module visualizations". Same
@@ -1478,17 +1699,17 @@ async function main() {
   // request \u2014 see DECISIONS.md changelog.)
   const existingEnergy = await loadExistingEnergy();
   const energyOutput = { generatedAt: new Date().toISOString() };
- 
+
   try {
     energyOutput.generationMix = await fetchGenerationMix();
   } catch (err) {
     console.error(`[warn] fetchGenerationMix failed: ${err.message}`);
     if (existingEnergy.generationMix) energyOutput.generationMix = existingEnergy.generationMix;
   }
- 
+
   await writeFile(ENERGY_OUT_PATH, JSON.stringify(energyOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${ENERGY_OUT_PATH}.`);
- 
+
   // Distributional Justice (Pillar 2) panel: US Gini time series, own
   // sibling output file for the same reason energy-data.json is separate
   // from ticker-data.json — this is a chart series, not a single ticker
@@ -1506,7 +1727,7 @@ async function main() {
   }
   await writeFile(GINI_OUT_PATH, JSON.stringify(giniOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${GINI_OUT_PATH}.`);
- 
+
   // Structural Power & Political Economy (Pillar 1) panel: Student Loans
   // Owned and Securitized time series — own sibling output file, same
   // reason gini-data.json/energy-data.json are separate from
@@ -1525,7 +1746,7 @@ async function main() {
   }
   await writeFile(STUDENT_LOAN_OUT_PATH, JSON.stringify(studentLoanOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${STUDENT_LOAN_OUT_PATH}.`);
- 
+
   // Peace and Conflict (Pillar 3) panel: forcibly displaced persons by
   // region of origin, latest year \u2014 own sibling output file, same
   // reason gini-data.json/energy-data.json/student-loan-data.json are
@@ -1545,7 +1766,7 @@ async function main() {
   }
   await writeFile(PEACE_OUT_PATH, JSON.stringify(peaceOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${PEACE_OUT_PATH}.`);
- 
+
   // Discourse-tagging module (Pillar 1): lexicon-scored Congressional
   // Record excerpts \u2014 own sibling output file, same reason the other
   // module JSONs are separate from ticker-data.json (a set of tagged
@@ -1580,7 +1801,7 @@ async function main() {
   }
   await writeFile(DISCOURSE_OUT_PATH, JSON.stringify(discourseOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${DISCOURSE_OUT_PATH}.`);
- 
+
   // Democracy (Pillar 1) panel: US Liberal Democracy Index time series —
   // own sibling output file, same reason gini-data.json/student-loan-data.json
   // are separate from ticker-data.json (a chart series, not a single ticker
@@ -1598,10 +1819,30 @@ async function main() {
   }
   await writeFile(DEMOCRACY_OUT_PATH, JSON.stringify(democracyOutput, null, 2) + "\n", "utf8");
   console.log(`Wrote ${DEMOCRACY_OUT_PATH}.`);
+
+  // Legal case-narrative tagging module (Pillar 1): SEC EDGAR Legal
+  // Proceedings sections \u2014 own sibling output file, same reason
+  // discourse-data.json/peace-data.json are separate from
+  // ticker-data.json (a set of tagged entries, not a single ticker
+  // value). Same fall-back-to-last-published behavior on fetch failure.
+  // Additive to, not a replacement for, discourse-data.json/"Vibe of the
+  // Congress" \u2014 see DECISIONS.md, "Legal case-narrative tagging module."
+  const existingLegal = await loadExistingLegal();
+  let legalOutput = { generatedAt: new Date().toISOString() };
+  try {
+    const legal = await fetchLegalCaseTags();
+    legalOutput = { generatedAt: legalOutput.generatedAt, ...legal };
+  } catch (err) {
+    console.error(`[warn] fetchLegalCaseTags failed: ${err.message}`);
+    if (existingLegal.entries) {
+      legalOutput = { ...existingLegal, generatedAt: legalOutput.generatedAt };
+    }
+  }
+  await writeFile(LEGAL_OUT_PATH, JSON.stringify(legalOutput, null, 2) + "\n", "utf8");
+  console.log(`Wrote ${LEGAL_OUT_PATH}.`);
 }
- 
+
 main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
- 
