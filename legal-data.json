@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T20:59:59.781Z",
+  "generatedAt": "2026-09-18T16:25:42.547Z",
   "asOf": "2026-08-28",
   "source": "SEC EDGAR (Legal Proceedings sections, 10-K/10-Q)",
   "method": "Lexicon-based scoring — Legal Outcome Lexicon + Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
@@ -129,62 +129,6 @@
         "positive": 4.2,
         "negative": 0,
         "score": 4.2
-      }
-    },
-    {
-      "accessionNo": "0001193125-26-355641",
-      "company": "IRIDEX CORP",
-      "form": "10-Q",
-      "date": "2026-08-18",
-      "excerpt": "From time to time, we may be involved in legal proceedings arising in the ordinary course of business. Although the results of litigation and claims cannot be predicted with certainty, we currently believe that the final outcome of these ordinary course matters will not have a material…",
-      "wordCount": 84,
-      "legalCategories": {
-        "liability": 0,
-        "remediation": 11.9,
-        "regulatory": 0,
-        "procedural": 23.8
-      },
-      "dominantLegalCategory": "procedural",
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "liability": [],
-        "remediation": [
-          "settlement"
-        ],
-        "regulatory": [],
-        "procedural": [
-          "litigation"
-        ],
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
       }
     }
   ]
