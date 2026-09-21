@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T16:08:49.748Z",
+  "generatedAt": "2026-09-21T18:13:21.312Z",
   "asOf": "2026-08-28",
   "source": "SEC EDGAR (Legal Proceedings sections, 10-K/10-Q)",
   "method": "Lexicon-based scoring — Legal Outcome Lexicon + Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
