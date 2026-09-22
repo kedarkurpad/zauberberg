@@ -1,9 +1,54 @@
 {
-  "generatedAt": "2026-09-21T18:13:09.544Z",
-  "asOf": "2026-09-17",
+  "generatedAt": "2026-09-22T16:58:33.587Z",
+  "asOf": "2026-09-21",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
+    {
+      "granuleId": "CREC-2026-09-21-pt1-PgH5991-5",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "date": "2026-09-21",
+      "excerpt": "…149 (Monday, September 21, 2026)] [House] [Page H5991] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
+      "wordCount": 88,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 11.4,
+        "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "loyalty",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [
+          "justice"
+        ],
+        "loyalty": [
+          "allegiance",
+          "nation"
+        ],
+        "authority": [],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
     {
       "granuleId": "CREC-2026-09-17-pt1-PgH5987-5",
       "title": "PLEDGE OF ALLEGIANCE",
@@ -14,6 +59,51 @@
         "care": 0,
         "fairness": 11.4,
         "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "loyalty",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [
+          "justice"
+        ],
+        "loyalty": [
+          "allegiance",
+          "nation"
+        ],
+        "authority": [],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
+    {
+      "granuleId": "CREC-2026-09-16-pt1-PgH5835-6",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "date": "2026-09-16",
+      "excerpt": "…6 (Wednesday, September 16, 2026)] [House] [Page H5835] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. Will the gentleman from Massachusetts (Mr. Neal) come forward and lead the House in the Pledge of Allegiance. Mr. NEAL led t…",
+      "wordCount": 93,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 10.8,
+        "loyalty": 53.8,
         "authority": 0,
         "purity": 0
       },
@@ -73,120 +163,6 @@
           "order",
           "leaders"
         ],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-14-pt1-PgH5537",
-      "title": "RECOGNIZING THE SUDANESE-AMERICAN IOWA NATIONAL SOCCER TEAM CLUB",
-      "date": "2026-09-14",
-      "excerpt": "…] [Page H5537] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] {time} 1215 RECOGNIZING THE SUDANESE-AMERICAN IOWA NATIONAL SOCCER TEAM CLUB (Mrs. Miller-Meeks of Iowa was recognized to address the House for 5 minutes.) Mrs. MILLER-MEEKS. Mr. Speaker, I rise today to recogni…",
-      "wordCount": 741,
-      "moralFoundations": {
-        "care": 1.3,
-        "fairness": 1.3,
-        "loyalty": 28.3,
-        "authority": 4,
-        "purity": 1.3
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [
-          "harmonizing"
-        ],
-        "fairness": [
-          "fair"
-        ],
-        "loyalty": [
-          "national",
-          "team",
-          "teamwork",
-          "team's",
-          "community"
-        ],
-        "authority": [
-          "respect",
-          "leadership",
-          "law"
-        ],
-        "purity": [
-          "sacred"
-        ],
-        "anger": [],
-        "fear": [],
-        "joy": [
-          "pride",
-          "celebrating",
-          "celebrate",
-          "happy",
-          "hope"
-        ],
-        "sadness": [],
-        "positive": [
-          "support",
-          "good",
-          "supports",
-          "supporting"
-        ],
-        "negative": [
-          "harmonizing"
-        ]
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 12.1,
-        "sadness": 0
-      },
-      "dominantEmotion": "joy",
-      "tone": {
-        "positive": 5.4,
-        "negative": 1.3,
-        "score": 4.1
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-10-pt1-PgH5523-6",
-      "title": "PLEDGE OF ALLEGIANCE",
-      "date": "2026-09-10",
-      "excerpt": "…43 (Thursday, September 10, 2026)] [House] [Page H5523] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
-      "wordCount": 88,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 11.4,
-        "loyalty": 56.8,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "allegiance",
-          "nation"
-        ],
-        "authority": [],
         "purity": [],
         "anger": [],
         "fear": [],
