@@ -1,9 +1,53 @@
 {
-  "generatedAt": "2026-09-23T17:02:44.770Z",
-  "asOf": "2026-09-22",
+  "generatedAt": "2026-09-24T17:13:23.267Z",
+  "asOf": "2026-09-23",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
+    {
+      "granuleId": "CREC-2026-09-23-pt1-PgS4885-6",
+      "title": "RESERVATION OF LEADER TIME",
+      "date": "2026-09-23",
+      "excerpt": "…nesday, September 23, 2026)] [Senate] [Page S4885] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] RESERVATION OF LEADER TIME The PRESIDENT pro tempore. Under the previous order, the leadership time is reserved. ____________________",
+      "wordCount": 45,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 66.7,
+        "purity": 0
+      },
+      "dominantFoundation": "authority",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [],
+        "loyalty": [],
+        "authority": [
+          "leader",
+          "order",
+          "leadership"
+        ],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
     {
       "granuleId": "CREC-2026-09-22-pt1-PgS4839-6",
       "title": "RESERVATION OF LEADER TIME",
@@ -103,51 +147,6 @@
         "care": 0,
         "fairness": 11.4,
         "loyalty": 56.8,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "allegiance",
-          "nation"
-        ],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-16-pt1-PgH5835-6",
-      "title": "PLEDGE OF ALLEGIANCE",
-      "date": "2026-09-16",
-      "excerpt": "…6 (Wednesday, September 16, 2026)] [House] [Page H5835] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. Will the gentleman from Massachusetts (Mr. Neal) come forward and lead the House in the Pledge of Allegiance. Mr. NEAL led t…",
-      "wordCount": 93,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 10.8,
-        "loyalty": 53.8,
         "authority": 0,
         "purity": 0
       },
