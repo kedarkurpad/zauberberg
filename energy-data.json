@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-24T17:13:17.563Z",
+  "generatedAt": "2026-09-25T17:13:41.529Z",
   "generationMix": {
     "asOf": "2025",
     "series": [
       {
         "year": 2020,
-        "fossil": 64.7,
+        "fossil": 64.8,
         "nuclear": 21.2,
         "renewables": 14
       },
