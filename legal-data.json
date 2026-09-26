@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T17:13:52.620Z",
+  "generatedAt": "2026-09-26T16:25:28.707Z",
   "asOf": "2026-08-28",
   "source": "SEC EDGAR (Legal Proceedings sections, 10-K/10-Q)",
   "method": "Lexicon-based scoring — Legal Outcome Lexicon + Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
@@ -69,66 +69,6 @@
         "positive": 8.5,
         "negative": 0,
         "score": 8.5
-      }
-    },
-    {
-      "accessionNo": "0001193125-26-366101",
-      "company": "MOVADO GROUP INC",
-      "form": "10-Q",
-      "date": "2026-08-26",
-      "excerpt": "…e of loss or includes a statement that such an estimate cannot be made. &#160; On April 28, 2025, the Company received a voluntary request from the Division of Enforcement of the Securities and Exchange Commission (the &#8220;SEC&#8221;) for documents and information relating to the restatement previously reported in f…",
-      "wordCount": 236,
-      "legalCategories": {
-        "liability": 0,
-        "remediation": 0,
-        "regulatory": 16.9,
-        "procedural": 0
-      },
-      "dominantLegalCategory": "regulatory",
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": null,
-      "matchedKeywords": {
-        "liability": [],
-        "remediation": [],
-        "regulatory": [
-          "enforcement",
-          "commission",
-          "sec"
-        ],
-        "procedural": [],
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [
-          "loss"
-        ],
-        "positive": [
-          "securities"
-        ],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 21.2
-      },
-      "dominantEmotion": "sadness",
-      "tone": {
-        "positive": 4.2,
-        "negative": 0,
-        "score": 4.2
       }
     }
   ]

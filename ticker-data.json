@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-09-25T17:13:41.491Z",
+  "generatedAt": "2026-09-26T16:25:19.200Z",
   "indicators": [
     {
       "id": "treasury-spread",
       "name": "10Y–2Y Treasury Yield Spread (FRED: T10Y2Y)",
-      "value": "0.3pp",
+      "value": "0.4pp",
       "change": "+0.0pp",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "2026-09-24"
+      "asOf": "2026-09-25"
     },
     {
       "id": "labor-share",

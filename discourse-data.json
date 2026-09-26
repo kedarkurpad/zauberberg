@@ -1,9 +1,54 @@
 {
-  "generatedAt": "2026-09-25T17:13:45.491Z",
-  "asOf": "2026-09-23",
+  "generatedAt": "2026-09-26T16:25:21.362Z",
+  "asOf": "2026-09-24",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
+    {
+      "granuleId": "CREC-2026-09-24-pt1-PgH5997-5",
+      "title": "PLEDGE OF ALLEGIANCE",
+      "date": "2026-09-24",
+      "excerpt": "…52 (Thursday, September 24, 2026)] [House] [Page H5997] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
+      "wordCount": 88,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 11.4,
+        "loyalty": 56.8,
+        "authority": 0,
+        "purity": 0
+      },
+      "dominantFoundation": "loyalty",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [
+          "justice"
+        ],
+        "loyalty": [
+          "allegiance",
+          "nation"
+        ],
+        "authority": [],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
     {
       "granuleId": "CREC-2026-09-23-pt1-PgS4885-6",
       "title": "RESERVATION OF LEADER TIME",
@@ -97,51 +142,6 @@
       "title": "PLEDGE OF ALLEGIANCE",
       "date": "2026-09-21",
       "excerpt": "…149 (Monday, September 21, 2026)] [House] [Page H5991] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
-      "wordCount": 88,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 11.4,
-        "loyalty": 56.8,
-        "authority": 0,
-        "purity": 0
-      },
-      "dominantFoundation": "loyalty",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [
-          "justice"
-        ],
-        "loyalty": [
-          "allegiance",
-          "nation"
-        ],
-        "authority": [],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-17-pt1-PgH5987-5",
-      "title": "PLEDGE OF ALLEGIANCE",
-      "date": "2026-09-17",
-      "excerpt": "…47 (Thursday, September 17, 2026)] [House] [Page H5987] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] PLEDGE OF ALLEGIANCE The SPEAKER pro tempore. The Chair will lead the House in the Pledge of Allegiance. The SPEAKER pro tempore led the Pledge of Allegiance as follows:…",
       "wordCount": 88,
       "moralFoundations": {
         "care": 0,
