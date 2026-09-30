@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-09-29T18:06:11.422Z",
+  "generatedAt": "2026-09-30T18:00:53.955Z",
   "indicators": [
     {
       "id": "treasury-spread",
       "name": "10Y–2Y Treasury Yield Spread (FRED: T10Y2Y)",
-      "value": "0.3pp",
-      "change": "-0.0pp",
+      "value": "0.4pp",
+      "change": "+0.0pp",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "2026-09-28"
+      "asOf": "2026-09-29"
     },
     {
       "id": "labor-share",
@@ -74,20 +74,20 @@
     {
       "id": "spr-level",
       "name": "Strategic Petroleum Reserve — Crude Oil Stocks (EIA, weekly)",
-      "value": "284.6 MMbbl",
-      "change": "-0.4 MMbbl",
+      "value": "283.8 MMbbl",
+      "change": "-0.8 MMbbl",
       "series": "ochre",
       "cadence": "weekly",
-      "asOf": "2026-09-18"
+      "asOf": "2026-09-25"
     },
     {
       "id": "energy-price-volatility",
       "name": "Energy Price Volatility — WTI 20-Day Realized Vol (FRED: DCOILWTICO)",
-      "value": "44.8%",
-      "change": "-0.2pp",
+      "value": "84.2%",
+      "change": "+0.8pp",
       "series": "ochre",
       "cadence": "daily",
-      "asOf": "2026-09-22",
+      "asOf": "2026-09-29",
       "note": "Annualized realized volatility of WTI crude over the trailing 20 trading days — the swing, not the price level, is the Pillar 4 signal (supply-shock/geopolitical exposure)."
     },
     {

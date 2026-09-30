@@ -1,9 +1,53 @@
 {
-  "generatedAt": "2026-09-29T18:06:19.974Z",
-  "asOf": "2026-09-28",
+  "generatedAt": "2026-09-30T18:01:15.224Z",
+  "asOf": "2026-09-29",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
   "entries": [
+    {
+      "granuleId": "CREC-2026-09-29-pt1-PgS5131-7",
+      "title": "RESERVATION OF LEADER TIME",
+      "date": "2026-09-29",
+      "excerpt": "…uesday, September 29, 2026)] [Senate] [Page S5131] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] RESERVATION OF LEADER TIME The ACTING PRESIDENT pro tempore. Under the previous order, the leadership time is reserved. ____________________",
+      "wordCount": 46,
+      "moralFoundations": {
+        "care": 0,
+        "fairness": 0,
+        "loyalty": 0,
+        "authority": 65.2,
+        "purity": 0
+      },
+      "dominantFoundation": "authority",
+      "matchedKeywords": {
+        "care": [],
+        "fairness": [],
+        "loyalty": [],
+        "authority": [
+          "leader",
+          "order",
+          "leadership"
+        ],
+        "purity": [],
+        "anger": [],
+        "fear": [],
+        "joy": [],
+        "sadness": [],
+        "positive": [],
+        "negative": []
+      },
+      "emotions": {
+        "anger": 0,
+        "fear": 0,
+        "joy": 0,
+        "sadness": 0
+      },
+      "dominantEmotion": null,
+      "tone": {
+        "positive": 0,
+        "negative": 0,
+        "score": 0
+      }
+    },
     {
       "granuleId": "CREC-2026-09-28-pt1-PgH6009-5",
       "title": "PLEDGE OF ALLEGIANCE",
@@ -99,50 +143,6 @@
       "title": "RESERVATION OF LEADER TIME",
       "date": "2026-09-23",
       "excerpt": "…nesday, September 23, 2026)] [Senate] [Page S4885] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] RESERVATION OF LEADER TIME The PRESIDENT pro tempore. Under the previous order, the leadership time is reserved. ____________________",
-      "wordCount": 45,
-      "moralFoundations": {
-        "care": 0,
-        "fairness": 0,
-        "loyalty": 0,
-        "authority": 66.7,
-        "purity": 0
-      },
-      "dominantFoundation": "authority",
-      "matchedKeywords": {
-        "care": [],
-        "fairness": [],
-        "loyalty": [],
-        "authority": [
-          "leader",
-          "order",
-          "leadership"
-        ],
-        "purity": [],
-        "anger": [],
-        "fear": [],
-        "joy": [],
-        "sadness": [],
-        "positive": [],
-        "negative": []
-      },
-      "emotions": {
-        "anger": 0,
-        "fear": 0,
-        "joy": 0,
-        "sadness": 0
-      },
-      "dominantEmotion": null,
-      "tone": {
-        "positive": 0,
-        "negative": 0,
-        "score": 0
-      }
-    },
-    {
-      "granuleId": "CREC-2026-09-22-pt1-PgS4839-6",
-      "title": "RESERVATION OF LEADER TIME",
-      "date": "2026-09-22",
-      "excerpt": "…uesday, September 22, 2026)] [Senate] [Page S4839] From the Congressional Record Online through the Government Publishing Office [ www.gpo.gov ] RESERVATION OF LEADER TIME The PRESIDENT pro tempore. Under the previous order, the leadership time is reserved. ____________________",
       "wordCount": 45,
       "moralFoundations": {
         "care": 0,
