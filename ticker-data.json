@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-30T18:00:53.955Z",
+  "generatedAt": "2026-10-01T18:26:20.084Z",
   "indicators": [
     {
       "id": "treasury-spread",
@@ -8,7 +8,7 @@
       "change": "+0.0pp",
       "series": "terracotta",
       "cadence": "daily",
-      "asOf": "2026-09-29"
+      "asOf": "2026-09-30"
     },
     {
       "id": "labor-share",
@@ -64,11 +64,11 @@
     {
       "id": "housing-price-index",
       "name": "US Home Price YoY Growth (S&P/Case-Shiller via FRED: CSUSHPISA)",
-      "value": "+1.5%",
+      "value": "+1.9%",
       "change": "+0.3pp",
       "series": "sage",
       "cadence": "monthly",
-      "asOf": "2026-06-01",
+      "asOf": "2026-07-01",
       "note": "Value is year-over-year home-price appreciation; change is the month-over-month shift in that YoY rate (i.e. whether asset-wealth gains are accelerating or decelerating), not a simple index-point diff."
     },
     {
