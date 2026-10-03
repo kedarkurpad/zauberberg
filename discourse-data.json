@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-02T17:53:24.089Z",
+  "generatedAt": "2026-10-03T16:19:18.207Z",
   "asOf": "2026-10-01",
   "source": "GovInfo Congressional Record (CREC)",
   "method": "Lexicon-based scoring — Moral Foundations Dictionary + NRC-style emotion lexicon (starter subset, see fetch-ticker-data.mjs)",
